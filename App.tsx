@@ -1,15 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { UserRole, Order, OrderStatus, MenuItem } from './types';
+import { UserRole, Order, OrderStatus, MenuItem, DeliveryZone } from './types';
 import CustomerView from './components/CustomerView';
 import AdminView from './components/AdminView';
 import { BotIcon, UserShieldIcon } from './components/Icons';
-import { DELIVERY_AGENTS, INITIAL_MENU_ITEMS } from './constants';
+import { DELIVERY_AGENTS, INITIAL_MENU_ITEMS, INITIAL_DELIVERY_ZONES } from './constants';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.CUSTOMER);
   const [orders, setOrders] = useState<Order[]>([]);
   const [customerMessages, setCustomerMessages] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(INITIAL_DELIVERY_ZONES);
 
   const addOrder = (newOrder: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => {
     setOrders(prevOrders => [
@@ -25,6 +26,10 @@ const App: React.FC = () => {
 
   const addMenuItem = (newItem: Omit<MenuItem, 'id'>) => {
     setMenuItems(prev => [...prev, { ...newItem, id: Date.now() }]);
+  };
+
+  const addDeliveryZone = (newZone: Omit<DeliveryZone, 'id'>) => {
+    setDeliveryZones(prev => [...prev, { ...newZone, id: Date.now() }]);
   };
   
   const updateOrderStatus = useCallback((orderId: number, status: OrderStatus, deliveryAgentId?: string) => {
@@ -111,7 +116,13 @@ const App: React.FC = () => {
         </header>
         <main className="flex-grow overflow-hidden">
           {role === UserRole.CUSTOMER ? (
-            <CustomerView addOrder={addOrder} messages={customerMessages} setMessages={setCustomerMessages} menuItems={menuItems} />
+            <CustomerView 
+              addOrder={addOrder} 
+              messages={customerMessages} 
+              setMessages={setCustomerMessages} 
+              menuItems={menuItems} 
+              deliveryZones={deliveryZones}
+            />
           ) : (
             <AdminView 
               orders={orders} 
@@ -119,6 +130,8 @@ const App: React.FC = () => {
               menuItems={menuItems}
               addMenuItem={addMenuItem}
               addOrder={addOrder}
+              deliveryZones={deliveryZones}
+              addDeliveryZone={addDeliveryZone}
             />
           )}
         </main>

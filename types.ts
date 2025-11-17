@@ -11,6 +11,11 @@ export enum OrderStatus {
   CANCELLED = 'Cancelled',
 }
 
+export enum PaymentMethod {
+  COD = 'Cash on Delivery',
+  ONLINE = 'Online Payment',
+}
+
 export interface DeliveryAgent {
   id: string;
   name: string;
@@ -22,6 +27,12 @@ export interface MenuItem {
   price: number;
 }
 
+export interface DeliveryZone {
+  id: number;
+  name: string;
+  areas: string; // A simple description of areas covered
+}
+
 export interface Order {
   id: number;
   customerName: string;
@@ -30,6 +41,8 @@ export interface Order {
   timestamp: string;
   status: OrderStatus;
   deliveryAgent: DeliveryAgent | null;
+  paymentMethod: PaymentMethod;
+  deliveryZone: string;
 }
 
 export interface Message {
@@ -45,6 +58,8 @@ export enum ChatStep {
   ASK_NAME,
   ASK_ITEM,
   ASK_ADDRESS,
+  ASK_ZONE,
+  ASK_PAYMENT,
   CONFIRMATION,
   ORDER_PLACED,
   DONE

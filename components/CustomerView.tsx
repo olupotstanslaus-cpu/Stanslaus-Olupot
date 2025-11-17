@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, Order, ChatStep, MenuItem } from '../types';
-import { BOT_NAME } from '../constants';
+import { Message, Order, ChatStep, MenuItem, DeliveryZone, PaymentMethod } from '../types';
+import { BOT_NAME, PAYMENT_METHODS } from '../constants';
 import { generateBotResponse } from '../services/geminiService';
 import { SendIcon, BotIcon, UserIcon, CheckCircleIcon, DotIcon, XCircleIcon, ClipboardListIcon } from './Icons';
 
@@ -9,12 +9,13 @@ interface CustomerViewProps {
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   menuItems: MenuItem[];
+  deliveryZones: DeliveryZone[];
 }
 
-const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages, menuItems }) => {
+const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages, menuItems, deliveryZones }) => {
   const [input, setInput] = useState('');
   const [chatStep, setChatStep] = useState<ChatStep>(ChatStep.GREETING);
-  const [orderDetails, setOrderDetails] = useState({ name: '', item: '', address: '' });
+  const [orderDetails, setOrderDetails] = useState({ name: '', item: '', address: '', zone: '', payment: '' as PaymentMethod });
   const [isBotTyping, setIsBotTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -73,16 +74,40 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
         break;
       case ChatStep.ASK_ADDRESS:
         setOrderDetails(prev => ({ ...prev, address: userInput }));
-        const currentOrder = { ...orderDetails, address: userInput };
-        handleBotResponse(
-          `The user's address is "${userInput}". Present this order summary for confirmation:
-           - Name: ${currentOrder.name}
-           - Item: ${currentOrder.item}
-           - Address: ${currentOrder.address}
-           Ask them to type 'yes' to confirm or 'no' to cancel.`,
-           'yes'
-        );
-        setChatStep(ChatStep.CONFIRMATION);
+        const zonesString = deliveryZones.map(zone => `- ${zone.name} (${zone.areas})`).join('\n');
+        handleBotResponse(`Got it. Your address is "${userInput}". Please select your delivery zone from the list below by typing its name (e.g., Zone A):\n${zonesString}`);
+        setChatStep(ChatStep.ASK_ZONE);
+        break;
+      case ChatStep.ASK_ZONE:
+        const selectedZone = deliveryZones.find(z => z.name.toLowerCase() === userInput.trim().toLowerCase());
+        if (selectedZone) {
+            setOrderDetails(prev => ({ ...prev, zone: selectedZone.name }));
+            const paymentOptions = PAYMENT_METHODS.join(' or ');
+            handleBotResponse(`Great, you're in ${selectedZone.name}. How would you like to pay? (${paymentOptions})`);
+            setChatStep(ChatStep.ASK_PAYMENT);
+        } else {
+            handleBotResponse(`Sorry, that's not a valid delivery zone. Please choose from the list I provided by typing the zone name exactly.`);
+        }
+        break;
+      case ChatStep.ASK_PAYMENT:
+        const selectedPayment = PAYMENT_METHODS.find(p => p.toLowerCase().includes(userInput.trim().toLowerCase()));
+        if(selectedPayment) {
+            setOrderDetails(prev => ({ ...prev, payment: selectedPayment }));
+            const currentOrder = { ...orderDetails, payment: selectedPayment };
+            handleBotResponse(
+              `Perfect. Here is your order summary for confirmation:
+               - Name: ${currentOrder.name}
+               - Item: ${currentOrder.item}
+               - Address: ${currentOrder.address}
+               - Zone: ${currentOrder.zone}
+               - Payment: ${currentOrder.payment}
+               Please type 'yes' to confirm or 'no' to cancel.`,
+               'yes'
+            );
+            setChatStep(ChatStep.CONFIRMATION);
+        } else {
+            handleBotResponse(`I didn't understand that payment method. Please choose from the options I provided.`);
+        }
         break;
       case ChatStep.CONFIRMATION:
         if (userInput.toLowerCase() === 'yes') {
@@ -90,6 +115,8 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
              customerName: orderDetails.name,
              item: orderDetails.item,
              address: orderDetails.address,
+             deliveryZone: orderDetails.zone,
+             paymentMethod: orderDetails.payment,
              timestamp: new Date().toLocaleTimeString(),
           };
           addOrder(finalOrder);
@@ -98,7 +125,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
         } else {
           handleBotResponse(`The user cancelled the order. Apologize and ask if they would like to start over.`);
           setChatStep(ChatStep.GREETING); // Reset
-          setOrderDetails({ name: '', item: '', address: '' });
+          setOrderDetails({ name: '', item: '', address: '', zone: '', payment: '' as PaymentMethod });
         }
         break;
       case ChatStep.ORDER_PLACED:
@@ -167,12 +194,10 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
           onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           placeholder={isBotTyping ? "Bot is typing..." : "Type a message"}
           className="flex-grow rounded-full py-2 px-4 bg-white border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
-          // FIX: Corrected typo from isBotyping to isBotTyping.
           disabled={isBotTyping || chatStep === ChatStep.ORDER_PLACED}
         />
         <button
           onClick={handleSend}
-          // FIX: Corrected typo from isBotyping to isBotTyping.
           disabled={isBotTyping || chatStep === ChatStep.ORDER_PLACED}
           className="bg-[#128C7E] text-white rounded-full p-3 ml-3 hover:bg-[#075E54] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
         >

@@ -12,13 +12,18 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const model = 'gemini-2.5-flash';
 
+// By moving the system instruction from the config into the prompt itself,
+// we can sometimes resolve environment-specific network or proxy errors,
+// like the XHR error that was occurring, by simplifying the final request payload.
+const SYSTEM_INSTRUCTION = `You are a helpful and very concise customer service chatbot for an ordering service named ${BOT_NAME}. Your responses should be short, friendly, and sound like they are from a WhatsApp message. Do not use markdown or formatting.`;
+
+
 export const generateBotResponse = async (prompt: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
       model: model,
-      contents: prompt,
+      contents: `${SYSTEM_INSTRUCTION}\n\n${prompt}`,
       config: {
-        systemInstruction: `You are a helpful and very concise customer service chatbot for an ordering service named ${BOT_NAME}. Your responses should be short, friendly, and sound like they are from a WhatsApp message. Do not use markdown or formatting.`,
         temperature: 0.7,
       }
     });

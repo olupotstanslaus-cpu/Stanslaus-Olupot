@@ -1,4 +1,4 @@
-import { DeliveryAgent, MenuItem } from './types';
+import { DeliveryAgent, MenuItem, DeliveryZone, PaymentMethod } from './types';
 
 export const DELIVERY_AGENTS: DeliveryAgent[] = [
   { id: 'da1', name: 'John Doe' },
@@ -14,5 +14,17 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
   { id: 4, name: 'Spaghetti Carbonara', price: 14.50 },
   { id: 5, name: 'Chocolate Lava Cake', price: 6.00 },
 ];
+
+export const INITIAL_DELIVERY_ZONES: DeliveryZone[] = [
+  { id: 1, name: 'Zone A', areas: 'Downtown, City Center, Old Town' },
+  { id: 2, name: 'Zone B', areas: 'Suburbs, West End, North Park' },
+  { id: 3, name: 'Zone C', areas: 'Eastside, River Valley, Industrial Park' },
+];
+
+export const PAYMENT_METHODS: PaymentMethod[] = [
+  PaymentMethod.COD,
+  PaymentMethod.ONLINE,
+];
+
 
 export const BOT_NAME = "Quick Eats Bot";
