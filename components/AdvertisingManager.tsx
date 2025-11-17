@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GalleryItem, Advertisement } from '../types';
 import { generateAdCopy } from '../services/geminiService';
-import { MegaphoneIcon, SparklesIcon, TrashIcon } from './Icons';
+import { MegaphoneIcon, SparklesIcon, TrashIcon, EyeIcon, MousePointerClickIcon } from './Icons';
 
 interface AdvertisingManagerProps {
     galleryItems: GalleryItem[];
     advertisements: Advertisement[];
-    addAdvertisement: (ad: Omit<Advertisement, 'id'>) => void;
+    addAdvertisement: (ad: Omit<Advertisement, 'id' | 'views' | 'clicks'>) => void;
     toggleAdStatus: (adId: string) => void;
     deleteAdvertisement: (adId: string) => void;
 }
 
 const AdCreator: React.FC<{
     galleryItems: GalleryItem[];
-    addAdvertisement: (ad: Omit<Advertisement, 'id'>) => void;
+    addAdvertisement: (ad: Omit<Advertisement, 'id' | 'views' | 'clicks'>) => void;
 }> = ({ galleryItems, addAdvertisement }) => {
     const [headline, setHeadline] = useState('');
     const [body, setBody] = useState('');
@@ -161,6 +161,16 @@ const AdCard: React.FC<{
                 {image && <img src={image.url} alt={ad.headline} className="w-full h-32 object-cover rounded-md mb-3" />}
                 <p className="text-sm text-gray-600 whitespace-pre-wrap">{ad.body}</p>
             </div>
+            <div className="border-t bg-gray-50 px-3 py-2 flex items-center justify-end space-x-4">
+                <div className="flex items-center space-x-1 text-sm text-gray-600" title="Views">
+                    <EyeIcon className="w-4 h-4" />
+                    <span>{ad.views.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center space-x-1 text-sm text-gray-600" title="Clicks">
+                    <MousePointerClickIcon className="w-4 h-4" />
+                    <span>{ad.clicks.toLocaleString()}</span>
+                </div>
+            </div>
         </div>
     );
 };
@@ -168,6 +178,18 @@ const AdCard: React.FC<{
 const AdvertisingManager: React.FC<AdvertisingManagerProps> = (props) => {
     const { advertisements, galleryItems, addAdvertisement, toggleAdStatus, deleteAdvertisement } = props;
     
+    const adsWithSimulatedMetrics = useMemo(() => {
+        return advertisements.map(ad => {
+            if (!ad.isActive) return { ...ad, views: 0, clicks: 0 };
+            
+            const idHash = ad.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const views = (idHash % 5000) + 500;
+            const clicks = Math.floor(views * ((idHash % 10) / 100 + 0.01));
+            
+            return { ...ad, views, clicks };
+        });
+    }, [advertisements]);
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <AdCreator galleryItems={galleryItems} addAdvertisement={addAdvertisement} />
@@ -176,7 +198,7 @@ const AdvertisingManager: React.FC<AdvertisingManagerProps> = (props) => {
                 <h3 className="text-xl font-semibold text-gray-700">Manage Advertisements ({advertisements.length})</h3>
                 {advertisements.length > 0 ? (
                     <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2">
-                        {[...advertisements].reverse().map(ad => {
+                        {adsWithSimulatedMetrics.slice().reverse().map(ad => {
                             const adImage = galleryItems.find(item => item.id === ad.imageId);
                             return <AdCard key={ad.id} ad={ad} image={adImage} onToggle={toggleAdStatus} onDelete={deleteAdvertisement} />;
                         })}

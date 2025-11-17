@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GalleryItem } from '../types';
-import { generateImageFromPrompt, generateVideoFromPrompt, generateSpeechFromText } from '../services/geminiService';
-import { ImageIcon, VideoIcon, MicIcon, UsersIcon, SparklesIcon, PlusCircleIcon, CheckCircleIcon, TrashIcon, UploadIcon } from './Icons';
+import { generateImageFromPrompt, generateVideoFromPrompt, generateSpeechFromText, generateLogoFromPrompt } from '../services/geminiService';
+import { ImageIcon, VideoIcon, MicIcon, UsersIcon, SparklesIcon, PlusCircleIcon, CheckCircleIcon, TrashIcon, UploadIcon, BotIcon } from './Icons';
 
 // Helper to convert AudioBuffer to a WAV Blob
 const bufferToWave = (abuffer: AudioBuffer, len: number): Blob => {
@@ -65,7 +65,67 @@ interface MediaGeneratorProps {
     addGalleryItem: (item: Omit<GalleryItem, 'id'>) => void;
     toggleHomePageAsset: (itemId: string) => void;
     deleteGalleryItem: (itemId: string) => void;
+    setAppLogo: (url: string) => void;
 }
+
+const LogoGenerator: React.FC<{ setAppLogo: (url: string) => void }> = ({ setAppLogo }) => {
+    const [prompt, setPrompt] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [generatedLogo, setGeneratedLogo] = useState<string | null>(null);
+
+    const handleGenerate = async () => {
+        if (!prompt.trim()) return;
+        setIsLoading(true);
+        setError('');
+        setGeneratedLogo(null);
+        try {
+            const logoUrl = await generateLogoFromPrompt(prompt);
+            setGeneratedLogo(logoUrl);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'An unknown error occurred');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSetAsLogo = () => {
+        if (generatedLogo) {
+            setAppLogo(generatedLogo);
+        }
+    };
+
+    return (
+        <div className="bg-white p-4 rounded-lg shadow-md border space-y-4 max-w-lg mx-auto">
+            <h3 className="text-xl font-semibold text-gray-700">Generate App Logo</h3>
+            <p className="text-sm text-gray-500">Describe your business or the logo you envision. The AI will generate a modern, minimalist logo.</p>
+            <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="e.g., a coffee shop called 'The Daily Grind' with a steaming mug"
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                rows={3}
+            />
+            <button onClick={handleGenerate} disabled={isLoading} className="w-full bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 disabled:bg-gray-400 transition-colors flex items-center justify-center">
+                <SparklesIcon className="w-5 h-5 mr-2"/>
+                {isLoading ? 'Generating...' : 'Generate Logo'}
+            </button>
+            {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md">{error}</p>}
+            {generatedLogo && (
+                <div className="space-y-3 text-center">
+                    <p className="font-semibold text-gray-700">Generated Logo:</p>
+                    <div className="p-4 bg-gray-100 rounded-lg inline-block">
+                        <img src={generatedLogo} alt={prompt} className="rounded-lg max-w-full mx-auto h-auto w-48 h-48 object-contain shadow-md" />
+                    </div>
+                    <button onClick={handleSetAsLogo} className="w-full bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 transition-colors flex items-center justify-center">
+                        <CheckCircleIcon className="w-5 h-5 mr-2" />
+                        Set as App Logo
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const ImageGenerator: React.FC<{ addGalleryItem: MediaGeneratorProps['addGalleryItem'] }> = ({ addGalleryItem }) => {
     const [prompt, setPrompt] = useState('');
@@ -372,7 +432,7 @@ const GalleryManager: React.FC<{ items: GalleryItem[]; onToggle: (id: string) =>
                                     aria-label="Generate Narration"
                                 >
                                     {narratingItemId === item.id ? (
-                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
@@ -410,7 +470,7 @@ const GalleryManager: React.FC<{ items: GalleryItem[]; onToggle: (id: string) =>
     );
 };
 
-const MediaGenerator: React.FC<MediaGeneratorProps> = ({ galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem }) => {
+const MediaGenerator: React.FC<MediaGeneratorProps> = ({ galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem, setAppLogo }) => {
     const [activeTab, setActiveTab] = useState('gallery');
     const [narratingItemId, setNarratingItemId] = useState<string | null>(null);
     const [isVideoGenerationEnabled, setIsVideoGenerationEnabled] = useState(false);
@@ -523,4 +583,27 @@ const MediaGenerator: React.FC<MediaGeneratorProps> = ({ galleryItems, addGaller
                         checked={isVideoGenerationEnabled}
                         onChange={handleVideoToggle}
                     />
-                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer
+                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+            </div>
+            <div className="flex space-x-2 border-b">
+                <TabButton label="Gallery" tabName="gallery" icon={<UsersIcon className="w-5 h-5" />} />
+                <TabButton label="Upload" tabName="upload" icon={<UploadIcon className="w-5 h-5" />} />
+                <TabButton label="Image" tabName="image" icon={<ImageIcon className="w-5 h-5" />} />
+                {isVideoGenerationEnabled && <TabButton label="Video" tabName="video" icon={<VideoIcon className="w-5 h-5" />} />}
+                <TabButton label="Voice" tabName="voice" icon={<MicIcon className="w-5 h-5" />} />
+                <TabButton label="Logo" tabName="logo" icon={<BotIcon className="w-5 h-5" />} />
+            </div>
+            <div className="p-1">
+                {activeTab === 'gallery' && <GalleryManager items={galleryItems} onToggle={toggleHomePageAsset} onDelete={deleteGalleryItem} onGenerateNarration={handleGenerateNarration} narratingItemId={narratingItemId} />}
+                {activeTab === 'upload' && <Uploader addGalleryItem={addGalleryItem} />}
+                {activeTab === 'image' && <ImageGenerator addGalleryItem={addGalleryItem} />}
+                {activeTab === 'video' && isVideoGenerationEnabled && <VideoGenerator addGalleryItem={addGalleryItem} />}
+                {activeTab === 'voice' && <VoiceGenerator />}
+                {activeTab === 'logo' && <LogoGenerator setAppLogo={setAppLogo} />}
+            </div>
+        </div>
+    );
+};
+
+export default MediaGenerator;

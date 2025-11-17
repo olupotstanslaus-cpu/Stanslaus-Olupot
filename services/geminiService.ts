@@ -74,6 +74,28 @@ export const generateImageFromPrompt = async (prompt: string): Promise<string> =
     }
 };
 
+export const generateLogoFromPrompt = async (prompt: string): Promise<string> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        const enhancedPrompt = `Design a modern, minimalist vector logo for ${prompt}. The logo should be clean, professional, and suitable for a brand identity. White background.`;
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: enhancedPrompt,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: 'image/png', // PNG for potential transparency
+              aspectRatio: '1:1', // Logos are usually square
+            },
+        });
+        
+        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+        return `data:image/png;base64,${base64ImageBytes}`;
+    } catch (error) {
+        console.error('Error generating logo from Gemini:', error);
+        throw new Error('Failed to generate logo');
+    }
+};
+
 export const generateVideoFromPrompt = async (prompt: string, onProgress: (message: string) => void): Promise<string> => {
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });

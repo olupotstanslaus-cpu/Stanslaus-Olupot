@@ -14,6 +14,8 @@ export enum OrderStatus {
 export enum PaymentMethod {
   COD = 'Cash on Delivery',
   ONLINE = 'Online Payment',
+  CASH = 'Cash',
+  CARD = 'Card',
 }
 
 export interface DeliveryAgent {
@@ -75,4 +77,10 @@ export interface Advertisement {
   body: string;
   imageId: string | null; // Corresponds to GalleryItem id
   isActive: boolean;
+  views: number;
+  clicks: number;
+}
+
+export interface CartSaleItem extends MenuItem {
+  quantity: number;
 }

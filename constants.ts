@@ -18,6 +18,8 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
 export const PAYMENT_METHODS: PaymentMethod[] = [
   PaymentMethod.COD,
   PaymentMethod.ONLINE,
+  PaymentMethod.CASH,
+  PaymentMethod.CARD,
 ];
 
 

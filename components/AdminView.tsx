@@ -1,17 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Order, OrderStatus, DeliveryAgent, MenuItem, PaymentMethod, GalleryItem, Advertisement } from '../types';
-import { PAYMENT_METHODS } from '../constants';
-import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon, UsersIcon, BellIcon, XIcon, SparklesIcon, MegaphoneIcon, HomeIcon, DollarSignIcon } from './Icons';
+import { Order, OrderStatus, DeliveryAgent, MenuItem, GalleryItem, Advertisement, CartSaleItem, PaymentMethod } from '../types';
+import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, MenuIcon, SearchIcon, UsersIcon, BellIcon, XIcon, SparklesIcon, MegaphoneIcon, HomeIcon, DollarSignIcon, StoreIcon } from './Icons';
 import MediaGenerator from './MediaGenerator';
 import AdvertisingManager from './AdvertisingManager';
 import SalesView from './SalesView';
+import ShopManager from './ShopManager';
 
 interface AdminViewProps {
   orders: Order[];
   updateOrderStatus: (orderId: number, status: OrderStatus, deliveryAgentId?: string) => void;
   menuItems: MenuItem[];
   addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
-  addOrder: (order: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => void;
   deliveryAgents: DeliveryAgent[];
   toggleAgentAvailability: (agentId: string) => void;
   galleryItems: GalleryItem[];
@@ -19,10 +18,12 @@ interface AdminViewProps {
   toggleHomePageAsset: (itemId: string) => void;
   deleteGalleryItem: (itemId: string) => void;
   advertisements: Advertisement[];
-  addAdvertisement: (ad: Omit<Advertisement, 'id'>) => void;
+  addAdvertisement: (ad: Omit<Advertisement, 'id' | 'views' | 'clicks'>) => void;
   toggleAdStatus: (adId: string) => void;
   deleteAdvertisement: (adId: string) => void;
   onBackToHome: () => void;
+  setAppLogo: (url: string) => void;
+  addStoreSale: (cartItems: CartSaleItem[], paymentMethod: PaymentMethod, total: number) => void;
 }
 
 const getStatusIcon = (status: OrderStatus) => {
@@ -225,81 +226,6 @@ const MenuManager: React.FC<{ menuItems: MenuItem[]; addMenuItem: (item: Omit<Me
     );
 };
 
-const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Order, 'id'|'status'|'deliveryAgent'>) => void; setActiveTab: (tab: string) => void; }> = ({ menuItems, addOrder, setActiveTab }) => {
-    const [customerName, setCustomerName] = useState('');
-    const [customerNumber, setCustomerNumber] = useState('');
-    const [address, setAddress] = useState('');
-    const [selectedItem, setSelectedItem] = useState('');
-    const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>(PaymentMethod.COD);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        const orderedMenuItem = menuItems.find(item => item.name === selectedItem);
-        const itemPrice = orderedMenuItem ? orderedMenuItem.price : 0;
-        
-        if (customerName.trim() && address.trim() && selectedItem && customerNumber.trim() && orderedMenuItem) {
-            addOrder({
-                customerName,
-                customerNumber,
-                address,
-                item: selectedItem,
-                price: itemPrice,
-                paymentMethod: selectedPayment,
-                timestamp: new Date().toISOString()
-            });
-            setCustomerName('');
-            setCustomerNumber('');
-            setAddress('');
-            setSelectedItem('');
-            setSelectedPayment(PaymentMethod.COD);
-            alert('Order added successfully!');
-            setActiveTab('dashboard');
-        } else {
-            alert('Please fill out all fields correctly.');
-        }
-    };
-
-    return (
-        <div>
-             <h3 className="text-xl font-semibold text-gray-700 mb-3">Create a New Order</h3>
-             <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow-md border space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="customerName" className="block mb-2 text-sm font-medium text-gray-900">Customer Name</label>
-                        <input type="text" id="customerName" value={customerName} onChange={e => setCustomerName(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
-                    </div>
-                     <div>
-                        <label htmlFor="customerNumber" className="block mb-2 text-sm font-medium text-gray-900">Customer Phone</label>
-                        <input type="tel" id="customerNumber" value={customerNumber} onChange={e => setCustomerNumber(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
-                    </div>
-                </div>
-                <div>
-                    <label htmlFor="item" className="block mb-2 text-sm font-medium text-gray-900">Menu Item</label>
-                    <select id="item" value={selectedItem} onChange={e => setSelectedItem(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
-                        <option value="">Select an item</option>
-                        {menuItems.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
-                    </select>
-                </div>
-                 <div>
-                    <label htmlFor="address" className="block mb-2 text-sm font-medium text-gray-900">Delivery Address</label>
-                    <textarea id="address" value={address} onChange={e => setAddress(e.target.value)} rows={2} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required></textarea>
-                </div>
-                 <div className="grid grid-cols-1">
-                    <div>
-                        <label htmlFor="payment" className="block mb-2 text-sm font-medium text-gray-900">Payment Method</label>
-                        <select id="payment" value={selectedPayment} onChange={e => setSelectedPayment(e.target.value as PaymentMethod)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
-                            {PAYMENT_METHODS.map(method => <option key={method} value={method}>{method}</option>)}
-                        </select>
-                    </div>
-                 </div>
-                <button type="submit" className="w-full bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center">
-                    <PlusCircleIcon className="w-5 h-5 mr-2" /> Create Order
-                </button>
-             </form>
-        </div>
-    );
-}
-
 const Dashboard: React.FC<{orders: Order[], deliveryAgents: DeliveryAgent[], onUpdate: (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => void}> = ({orders, deliveryAgents, onUpdate}) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -481,8 +407,8 @@ const DeliveryAgentsView: React.FC<{ orders: Order[], deliveryAgents: DeliveryAg
 };
 
 
-const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder, deliveryAgents, toggleAgentAvailability, galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem, advertisements, addAdvertisement, toggleAdStatus, deleteAdvertisement, onBackToHome }) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, deliveryAgents, toggleAgentAvailability, galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem, advertisements, addAdvertisement, toggleAdStatus, deleteAdvertisement, onBackToHome, setAppLogo, addStoreSale }) => {
+  const [activeView, setActiveView] = useState('dashboard');
   const [notifications, setNotifications] = useState<{ id: number; message: string }[]>([]);
   const prevOrderCountRef = useRef(orders.length);
 
@@ -500,15 +426,17 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
         const newOrders = orders.slice(-newOrdersCount);
 
         newOrders.forEach(newOrder => {
-            const newNotification = {
-                id: newOrder.id,
-                message: `New order #${newOrder.id} from ${newOrder.customerName}.`
-            };
-            setNotifications(prev => [newNotification, ...prev]);
+            if (newOrder.customerName !== 'In-Store Sale') {
+                const newNotification = {
+                    id: newOrder.id,
+                    message: `New order #${newOrder.id} from ${newOrder.customerName}.`
+                };
+                setNotifications(prev => [newNotification, ...prev]);
 
-            setTimeout(() => {
-                removeNotification(newOrder.id);
-            }, 6000);
+                setTimeout(() => {
+                    removeNotification(newOrder.id);
+                }, 6000);
+            }
         });
     }
     prevOrderCountRef.current = orders.length;
@@ -516,93 +444,112 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
 
 
   const pendingOrderCount = orders.filter(o => o.status === OrderStatus.PENDING).length;
-
-  const TabButton: React.FC<{label: string, tabName: string, icon: React.ReactNode, notificationCount?: number}> = ({label, tabName, icon, notificationCount}) => (
-     <button
-        onClick={() => setActiveTab(tabName)}
-        className={`relative flex items-center space-x-2 py-2 px-4 text-sm font-medium text-center rounded-t-lg transition-colors ${
-            activeTab === tabName
-            ? 'border-b-2 border-blue-500 text-blue-600'
-            : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-        }`}
-        >
-        {icon}
-        <span>{label}</span>
-        {notificationCount && notificationCount > 0 && (
-            <span className="absolute top-0 right-0 -mt-1 -mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
-                {notificationCount}
-            </span>
-        )}
-    </button>
-  );
   
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: <ClipboardListIcon className="w-5 h-5"/>, notificationCount: pendingOrderCount },
+    { id: 'sales', label: 'Sales', icon: <DollarSignIcon className="w-5 h-5" /> },
+    { id: 'shop', label: 'Shop Management', icon: <StoreIcon className="w-5 h-5" /> },
+    { id: 'media', label: 'Media', icon: <SparklesIcon className="w-5 h-5"/> },
+    { id: 'advertising', label: 'Advertising', icon: <MegaphoneIcon className="w-5 h-5" /> },
+    { id: 'menu', label: 'Menu', icon: <MenuIcon className="w-5 h-5"/> },
+    { id: 'deliveryAgents', label: 'Delivery Agents', icon: <UsersIcon className="w-5 h-5" /> },
+  ];
+  
+  const currentView = navItems.find(item => item.id === activeView);
+
   return (
-    <div className="p-4 bg-gray-50 h-full flex flex-col">
-       {/* Notification Toast Container */}
-      <div aria-live="assertive" className="fixed inset-0 flex items-end px-4 py-6 pointer-events-none sm:p-6 sm:items-start z-50">
-        <div className="w-full flex flex-col items-center space-y-4 sm:items-end">
-          {notifications.map((notification) => (
-            <div key={notification.id} className="max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <BellIcon className="h-6 w-6 text-green-500" aria-hidden="true" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1 pt-0.5">
-                    <p className="text-sm font-medium text-gray-900">New Order Received</p>
-                    <p className="mt-1 text-sm text-gray-500">{notification.message}</p>
-                  </div>
-                  <div className="ml-4 flex-shrink-0 flex">
-                    <button onClick={() => removeNotification(notification.id)} className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                      <span className="sr-only">Close</span>
-                      <XIcon className="h-5 w-5" aria-hidden="true" />
-                    </button>
-                  </div>
+    <div className="bg-gray-100 h-full flex">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-800 text-white flex flex-col flex-shrink-0">
+          <div className="h-16 flex items-center justify-center text-xl font-bold border-b border-gray-700 px-2 text-center">
+            Admin Panel
+          </div>
+          <nav className="flex-grow p-2 space-y-1">
+              {navItems.map(item => (
+                  <button
+                      key={item.id}
+                      onClick={() => setActiveView(item.id)}
+                      className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                          activeView === item.id
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      }`}
+                  >
+                      {item.icon}
+                      <span className="flex-grow text-left">{item.label}</span>
+                      {item.notificationCount && item.notificationCount > 0 && (
+                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
+                              {item.notificationCount}
+                          </span>
+                      )}
+                  </button>
+              ))}
+          </nav>
+          <div className="p-2 border-t border-gray-700">
+               <button
+                  onClick={onBackToHome}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-gray-300 hover:bg-gray-700 hover:text-white"
+              >
+                  <HomeIcon className="w-5 h-5" />
+                  <span>Back to Home</span>
+              </button>
+          </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+          {/* Notification Toasts */}
+           <div aria-live="assertive" className="fixed inset-0 flex items-end px-4 py-6 pointer-events-none sm:p-6 sm:items-start z-50">
+                <div className="w-full flex flex-col items-center space-y-4 sm:items-end">
+                  {notifications.map((notification) => (
+                    <div key={notification.id} className="max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
+                      <div className="p-4">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <BellIcon className="h-6 w-6 text-green-500" aria-hidden="true" />
+                          </div>
+                          <div className="ml-3 w-0 flex-1 pt-0.5">
+                            <p className="text-sm font-medium text-gray-900">New Order Received</p>
+                            <p className="mt-1 text-sm text-gray-500">{notification.message}</p>
+                          </div>
+                          <div className="ml-4 flex-shrink-0 flex">
+                            <button onClick={() => removeNotification(notification.id)} className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                              <span className="sr-only">Close</span>
+                              <XIcon className="h-5 w-5" aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
+          
+          <header className="bg-white shadow-sm h-16 flex items-center justify-between px-6 border-b flex-shrink-0">
+              <h2 className="text-2xl font-bold text-gray-800">{currentView?.label}</h2>
+          </header>
 
-      <div className="flex-shrink-0">
-        <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
-            <button
-                onClick={onBackToHome}
-                className="px-4 py-2 rounded-full text-sm font-semibold flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 transition-colors duration-300"
-            >
-                <HomeIcon className="w-5 h-5 mr-2" />
-                Back to Home
-            </button>
-        </div>
-        <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-                <TabButton label="Dashboard" tabName="dashboard" icon={<ClipboardListIcon className="w-5 h-5"/>} notificationCount={pendingOrderCount} />
-                <TabButton label="Sales" tabName="sales" icon={<DollarSignIcon className="w-5 h-5" />} />
-                <TabButton label="Media" tabName="media" icon={<SparklesIcon className="w-5 h-5"/>} />
-                <TabButton label="Advertising" tabName="advertising" icon={<MegaphoneIcon className="w-5 h-5" />} />
-                <TabButton label="Menu" tabName="menu" icon={<MenuIcon className="w-5 h-5"/>} />
-                <TabButton label="Add Order" tabName="addOrder" icon={<PlusCircleIcon className="w-5 h-5"/>} />
-                <TabButton label="Delivery Agents" tabName="deliveryAgents" icon={<UsersIcon className="w-5 h-5" />} />
-            </nav>
-        </div>
-      </div>
-      
-      <div className="flex-grow overflow-y-auto pt-4">
-        {activeTab === 'dashboard' && <Dashboard orders={orders} deliveryAgents={deliveryAgents} onUpdate={onUpdate} />}
-        {activeTab === 'sales' && <SalesView orders={orders} />}
-        {activeTab === 'media' && <MediaGenerator galleryItems={galleryItems} addGalleryItem={addGalleryItem} toggleHomePageAsset={toggleHomePageAsset} deleteGalleryItem={deleteGalleryItem} />}
-        {activeTab === 'advertising' && <AdvertisingManager 
-                                            galleryItems={galleryItems} 
-                                            advertisements={advertisements}
-                                            addAdvertisement={addAdvertisement}
-                                            toggleAdStatus={toggleAdStatus}
-                                            deleteAdvertisement={deleteAdvertisement}
+          <main className="flex-grow overflow-y-auto p-6 bg-gray-50">
+              {activeView === 'dashboard' && <Dashboard orders={orders} deliveryAgents={deliveryAgents} onUpdate={onUpdate} />}
+              {activeView === 'sales' && <SalesView orders={orders} />}
+              {activeView === 'shop' && <ShopManager menuItems={menuItems} orders={orders} addStoreSale={addStoreSale} />}
+              {activeView === 'media' && <MediaGenerator 
+                                          galleryItems={galleryItems} 
+                                          addGalleryItem={addGalleryItem} 
+                                          toggleHomePageAsset={toggleHomePageAsset} 
+                                          deleteGalleryItem={deleteGalleryItem} 
+                                          setAppLogo={setAppLogo}
                                         />}
-        {activeTab === 'menu' && <MenuManager menuItems={menuItems} addMenuItem={addMenuItem} />}
-        {activeTab === 'addOrder' && <AddOrderForm menuItems={menuItems} addOrder={addOrder} setActiveTab={setActiveTab} />}
-        {activeTab === 'deliveryAgents' && <DeliveryAgentsView orders={orders} deliveryAgents={deliveryAgents} onToggleAvailability={toggleAgentAvailability} />}
+              {activeView === 'advertising' && <AdvertisingManager 
+                                                  galleryItems={galleryItems} 
+                                                  advertisements={advertisements}
+                                                  addAdvertisement={addAdvertisement}
+                                                  toggleAdStatus={toggleAdStatus}
+                                                  deleteAdvertisement={deleteAdvertisement}
+                                              />}
+              {activeView === 'menu' && <MenuManager menuItems={menuItems} addMenuItem={addMenuItem} />}
+              {activeView === 'deliveryAgents' && <DeliveryAgentsView orders={orders} deliveryAgents={deliveryAgents} onToggleAvailability={toggleAgentAvailability} />}
+          </main>
       </div>
     </div>
   );

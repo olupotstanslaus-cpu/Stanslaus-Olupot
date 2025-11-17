@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { UserRole, Order, OrderStatus, MenuItem, DeliveryAgent, GalleryItem, Advertisement } from './types';
+import { UserRole, Order, OrderStatus, MenuItem, DeliveryAgent, GalleryItem, Advertisement, PaymentMethod, CartSaleItem } from './types';
 import CustomerView from './components/CustomerView';
 import AdminView from './components/AdminView';
 import { BotIcon, UserShieldIcon, HomeIcon } from './components/Icons';
@@ -16,8 +16,14 @@ const App: React.FC = () => {
   const [unreadCustomerNotifications, setUnreadCustomerNotifications] = useState(0);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
+  const [appLogoUrl, setAppLogoUrl] = useState<string | null>(null);
   
   const goHome = useCallback(() => setView('home'), []);
+
+  const handleSetAppLogo = useCallback((url: string) => {
+    setAppLogoUrl(url);
+    alert('App logo has been updated!');
+  }, []);
 
   const addGalleryItem = useCallback((item: Omit<GalleryItem, 'id'>) => {
     setGalleryItems(prev => [...prev, { ...item, id: `${Date.now()}` }]);
@@ -37,8 +43,8 @@ const App: React.FC = () => {
     );
   }, []);
 
-  const addAdvertisement = useCallback((ad: Omit<Advertisement, 'id'>) => {
-    setAdvertisements(prev => [...prev, { ...ad, id: `${Date.now()}` }]);
+  const addAdvertisement = useCallback((ad: Omit<Advertisement, 'id' | 'views' | 'clicks'>) => {
+    setAdvertisements(prev => [...prev, { ...ad, id: `${Date.now()}`, views: 0, clicks: 0 }]);
   }, []);
 
   const toggleAdStatus = useCallback((adId: string) => {
@@ -63,6 +69,28 @@ const App: React.FC = () => {
         deliveryAgent: null,
       },
     ]);
+  };
+
+  const addStoreSale = (cartItems: CartSaleItem[], paymentMethod: PaymentMethod, total: number) => {
+    if (cartItems.length === 0) return;
+
+    const itemsSummary = cartItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
+    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    
+    const newOrder: Order = {
+      id: Date.now(),
+      customerName: 'In-Store Sale',
+      customerNumber: 'N/A',
+      item: `${totalItems} item(s)`,
+      price: total,
+      address: 'In-Store',
+      timestamp: new Date().toISOString(),
+      status: OrderStatus.DELIVERED,
+      deliveryAgent: null,
+      paymentMethod: paymentMethod,
+    };
+    
+    setOrders(prevOrders => [...prevOrders, newOrder]);
   };
 
   const addMenuItem = (newItem: Omit<MenuItem, 'id'>) => {
@@ -148,6 +176,7 @@ const App: React.FC = () => {
     return <HomePage 
               assets={galleryItems.filter(item => item.isHomePageAsset)} 
               enterApp={() => setView('app')} 
+              appLogoUrl={appLogoUrl}
            />;
   }
 
@@ -156,7 +185,11 @@ const App: React.FC = () => {
       <div className="w-full max-w-4xl h-[95vh] max-h-[800px] bg-white shadow-2xl rounded-lg flex flex-col">
         <header className="bg-gray-800 text-white p-4 rounded-t-lg">
           <div className="flex justify-center items-center">
-            <h1 className="text-2xl font-bold text-center">WhatsApp Quick Order</h1>
+             {appLogoUrl ? (
+                <img src={appLogoUrl} alt="Logo" className="h-8 w-auto" />
+            ) : (
+                <h1 className="text-2xl font-bold text-center">WhatsApp Quick Order</h1>
+            )}
           </div>
           <div className="flex justify-center items-center mt-4 space-x-2">
             <button
@@ -200,7 +233,6 @@ const App: React.FC = () => {
               updateOrderStatus={updateOrderStatus}
               menuItems={menuItems}
               addMenuItem={addMenuItem}
-              addOrder={addOrder}
               deliveryAgents={deliveryAgents}
               toggleAgentAvailability={toggleAgentAvailability}
               galleryItems={galleryItems}
@@ -212,6 +244,8 @@ const App: React.FC = () => {
               toggleAdStatus={toggleAdStatus}
               deleteAdvertisement={deleteAdvertisement}
               onBackToHome={goHome}
+              setAppLogo={handleSetAppLogo}
+              addStoreSale={addStoreSale}
             />
           )}
         </main>
