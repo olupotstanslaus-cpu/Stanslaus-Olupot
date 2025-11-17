@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Order, OrderStatus, DeliveryAgent, MenuItem } from '../types';
 import { DELIVERY_AGENTS } from '../constants';
-import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon } from './Icons';
+import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon } from './Icons';
 
 interface AdminViewProps {
   orders: Order[];
@@ -232,10 +232,17 @@ const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Ord
 }
 
 const Dashboard: React.FC<{orders: Order[], onUpdate: (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => void}> = ({orders, onUpdate}) => {
-  const pendingOrders = orders.filter(o => o.status === OrderStatus.PENDING);
-  const approvedOrders = orders.filter(o => o.status === OrderStatus.APPROVED);
-  const inDeliveryOrders = orders.filter(o => o.status === OrderStatus.OUT_FOR_DELIVERY);
-  const completedOrders = orders.filter(o => o.status === OrderStatus.DELIVERED || o.status === OrderStatus.CANCELLED);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredOrders = orders.filter(order =>
+    order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.item.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const pendingOrders = filteredOrders.filter(o => o.status === OrderStatus.PENDING);
+  const approvedOrders = filteredOrders.filter(o => o.status === OrderStatus.APPROVED);
+  const inDeliveryOrders = filteredOrders.filter(o => o.status === OrderStatus.OUT_FOR_DELIVERY);
+  const completedOrders = filteredOrders.filter(o => o.status === OrderStatus.DELIVERED || o.status === OrderStatus.CANCELLED);
 
   if (orders.length === 0) {
       return (
@@ -248,34 +255,59 @@ const Dashboard: React.FC<{orders: Order[], onUpdate: (orderId: number, status: 
 
   return (
       <div className="space-y-6">
-        <section>
-            <h3 className="text-xl font-semibold text-gray-700 mb-3">Pending Orders ({pendingOrders.length})</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pendingOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                {pendingOrders.length === 0 && <p className="text-gray-500 col-span-full">No pending orders.</p>}
+        <div className="relative">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <SearchIcon className="w-5 h-5 text-gray-500" />
             </div>
-        </section>
-        <section>
-            <h3 className="text-xl font-semibold text-gray-700 mb-3">Approved for Delivery ({approvedOrders.length})</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {approvedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                 {approvedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are currently approved.</p>}
+            <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search orders by customer or item..."
+                className="block w-full p-2.5 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500"
+            />
+        </div>
+
+        {filteredOrders.length === 0 && orders.length > 0 && (
+            <div className="text-center py-16">
+                <SearchIcon className="w-16 h-16 mx-auto text-gray-300" />
+                <p className="mt-4 text-lg font-semibold text-gray-600">No Orders Found</p>
+                <p className="mt-2 text-gray-500">Your search for "{searchQuery}" did not match any orders.</p>
             </div>
-        </section>
-        <section>
-            <h3 className="text-xl font-semibold text-gray-700 mb-3">Out for Delivery ({inDeliveryOrders.length})</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {inDeliveryOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                {inDeliveryOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are out for delivery.</p>}
-            </div>
-        </section>
-         <section>
-            <h3 className="text-xl font-semibold text-gray-700 mb-3">Completed Orders ({completedOrders.length})</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                {completedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders have been completed or cancelled.</p>}
-            </div>
-        </section>
+        )}
+
+        {filteredOrders.length > 0 && (
+            <>
+                <section>
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3">Pending Orders ({pendingOrders.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {pendingOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {pendingOrders.length === 0 && <p className="text-gray-500 col-span-full">No pending orders.</p>}
+                    </div>
+                </section>
+                <section>
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3">Approved for Delivery ({approvedOrders.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {approvedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {approvedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are currently approved.</p>}
+                    </div>
+                </section>
+                <section>
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3">Out for Delivery ({inDeliveryOrders.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {inDeliveryOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {inDeliveryOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are out for delivery.</p>}
+                    </div>
+                </section>
+                <section>
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3">Completed Orders ({completedOrders.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {completedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {completedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders have been completed or cancelled.</p>}
+                    </div>
+                </section>
+            </>
+        )}
     </div>
   );
 }

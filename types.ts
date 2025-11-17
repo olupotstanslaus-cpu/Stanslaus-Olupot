@@ -37,6 +37,7 @@ export interface Message {
   text: string;
   sender: 'user' | 'bot';
   isNotification?: boolean;
+  notificationType?: 'success' | 'info' | 'error';
 }
 
 export enum ChatStep {

@@ -66,11 +66,19 @@ const App: React.FC = () => {
     }
 
     if (notificationText) {
+        let notificationType: 'success' | 'info' | 'error' = 'info';
+        if (status === OrderStatus.APPROVED || status === OrderStatus.DELIVERED) {
+            notificationType = 'success';
+        } else if (status === OrderStatus.CANCELLED) {
+            notificationType = 'error';
+        }
+
         setCustomerMessages(prev => [...prev, {
             id: Date.now(),
             text: notificationText,
             sender: 'bot',
             isNotification: true,
+            notificationType,
         }]);
     }
   }, []);

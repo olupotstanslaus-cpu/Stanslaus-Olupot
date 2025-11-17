@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, Order, ChatStep, MenuItem } from '../types';
 import { BOT_NAME } from '../constants';
 import { generateBotResponse } from '../services/geminiService';
-import { SendIcon, BotIcon, UserIcon, CheckCircleIcon, DotIcon } from './Icons';
+import { SendIcon, BotIcon, UserIcon, CheckCircleIcon, DotIcon, XCircleIcon, ClipboardListIcon } from './Icons';
 
 interface CustomerViewProps {
   addOrder: (newOrder: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => void;
@@ -129,9 +129,16 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
         {messages.map((msg, index) => (
           msg.isNotification ? (
             <div key={index} className="flex justify-center my-2">
-                <div className="bg-[#E2F7CB] text-center text-sm text-gray-700 rounded-lg px-3 py-1 shadow-sm">
-                    {msg.text}
-                </div>
+              <div className={`text-sm font-medium rounded-xl px-4 py-2 shadow-md flex items-center space-x-2 ${
+                  msg.notificationType === 'success' ? 'bg-green-100 text-green-800' :
+                  msg.notificationType === 'error' ? 'bg-red-100 text-red-800' :
+                  'bg-blue-100 text-blue-800'
+              }`}>
+                  {msg.notificationType === 'success' && <CheckCircleIcon className="w-5 h-5 text-green-600" />}
+                  {msg.notificationType === 'error' && <XCircleIcon className="w-5 h-5 text-red-600" />}
+                  {msg.notificationType !== 'success' && msg.notificationType !== 'error' && <ClipboardListIcon className="w-5 h-5 text-blue-600" />}
+                  <span>{msg.text}</span>
+              </div>
             </div>
           ) : (
             <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} mb-3`}>
