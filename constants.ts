@@ -21,4 +21,4 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
 ];
 
 
-export const BOT_NAME = "Quick Eats Bot";
+export const BOT_NAME = "stanley's cafeteria";

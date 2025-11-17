@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Order, OrderStatus, DeliveryAgent, MenuItem, PaymentMethod, GalleryItem } from '../types';
+import { Order, OrderStatus, DeliveryAgent, MenuItem, PaymentMethod, GalleryItem, Advertisement } from '../types';
 import { PAYMENT_METHODS } from '../constants';
-import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon, UsersIcon, BellIcon, XIcon, SparklesIcon } from './Icons';
+import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon, UsersIcon, BellIcon, XIcon, SparklesIcon, MegaphoneIcon, HomeIcon, DollarSignIcon } from './Icons';
 import MediaGenerator from './MediaGenerator';
+import AdvertisingManager from './AdvertisingManager';
+import SalesView from './SalesView';
 
 interface AdminViewProps {
   orders: Order[];
@@ -16,6 +18,11 @@ interface AdminViewProps {
   addGalleryItem: (item: Omit<GalleryItem, 'id'>) => void;
   toggleHomePageAsset: (itemId: string) => void;
   deleteGalleryItem: (itemId: string) => void;
+  advertisements: Advertisement[];
+  addAdvertisement: (ad: Omit<Advertisement, 'id'>) => void;
+  toggleAdStatus: (adId: string) => void;
+  deleteAdvertisement: (adId: string) => void;
+  onBackToHome: () => void;
 }
 
 const getStatusIcon = (status: OrderStatus) => {
@@ -111,10 +118,11 @@ const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, stat
             </div>
             <div className="mt-4 space-y-2 text-gray-600 text-sm">
                 <p><strong>Customer:</strong> {order.customerName}</p>
+                <p><strong>Phone:</strong> {order.customerNumber}</p>
                 <p><strong>Item:</strong> {order.item}</p>
                 <p><strong>Address:</strong> {order.address}</p>
                 <p><strong>Payment:</strong> {order.paymentMethod}</p>
-                <p className="text-xs text-gray-400 pt-1"><strong>Time:</strong> {order.timestamp}</p>
+                <p className="text-xs text-gray-400 pt-1"><strong>Time:</strong> {new Date(order.timestamp).toLocaleString()}</p>
                  {order.deliveryAgent && <p><strong>Agent:</strong> {order.deliveryAgent.name}</p>}
             </div>
         </div>
@@ -219,26 +227,35 @@ const MenuManager: React.FC<{ menuItems: MenuItem[]; addMenuItem: (item: Omit<Me
 
 const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Order, 'id'|'status'|'deliveryAgent'>) => void; setActiveTab: (tab: string) => void; }> = ({ menuItems, addOrder, setActiveTab }) => {
     const [customerName, setCustomerName] = useState('');
+    const [customerNumber, setCustomerNumber] = useState('');
     const [address, setAddress] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>(PaymentMethod.COD);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (customerName.trim() && address.trim() && selectedItem) {
+        const orderedMenuItem = menuItems.find(item => item.name === selectedItem);
+        const itemPrice = orderedMenuItem ? orderedMenuItem.price : 0;
+        
+        if (customerName.trim() && address.trim() && selectedItem && customerNumber.trim() && orderedMenuItem) {
             addOrder({
                 customerName,
+                customerNumber,
                 address,
                 item: selectedItem,
+                price: itemPrice,
                 paymentMethod: selectedPayment,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toISOString()
             });
             setCustomerName('');
+            setCustomerNumber('');
             setAddress('');
             setSelectedItem('');
             setSelectedPayment(PaymentMethod.COD);
             alert('Order added successfully!');
             setActiveTab('dashboard');
+        } else {
+            alert('Please fill out all fields correctly.');
         }
     };
 
@@ -246,9 +263,15 @@ const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Ord
         <div>
              <h3 className="text-xl font-semibold text-gray-700 mb-3">Create a New Order</h3>
              <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow-md border space-y-4">
-                <div>
-                    <label htmlFor="customerName" className="block mb-2 text-sm font-medium text-gray-900">Customer Name</label>
-                    <input type="text" id="customerName" value={customerName} onChange={e => setCustomerName(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="customerName" className="block mb-2 text-sm font-medium text-gray-900">Customer Name</label>
+                        <input type="text" id="customerName" value={customerName} onChange={e => setCustomerName(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
+                    </div>
+                     <div>
+                        <label htmlFor="customerNumber" className="block mb-2 text-sm font-medium text-gray-900">Customer Phone</label>
+                        <input type="tel" id="customerNumber" value={customerNumber} onChange={e => setCustomerNumber(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
+                    </div>
                 </div>
                 <div>
                     <label htmlFor="item" className="block mb-2 text-sm font-medium text-gray-900">Menu Item</label>
@@ -384,6 +407,7 @@ const AgentDetailView: React.FC<{ agent: DeliveryAgent, orders: Order[] }> = ({ 
                         <li key={order.id} className="p-3 bg-gray-50 rounded-md border flex justify-between items-center">
                             <div>
                                 <p className="font-semibold text-gray-800">Order #{order.id} - {order.item}</p>
+                                <p className="text-sm text-gray-600">{order.customerName} ({order.customerNumber})</p>
                                 <p className="text-sm text-gray-500">{order.address}</p>
                             </div>
                             <span className={`px-3 py-1 text-xs font-semibold rounded-full flex items-center space-x-2 ${getStatusColorClass(order.status)}`}>
@@ -457,7 +481,7 @@ const DeliveryAgentsView: React.FC<{ orders: Order[], deliveryAgents: DeliveryAg
 };
 
 
-const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder, deliveryAgents, toggleAgentAvailability, galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem }) => {
+const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder, deliveryAgents, toggleAgentAvailability, galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem, advertisements, addAdvertisement, toggleAdStatus, deleteAdvertisement, onBackToHome }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState<{ id: number; message: string }[]>([]);
   const prevOrderCountRef = useRef(orders.length);
@@ -542,11 +566,22 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
       </div>
 
       <div className="flex-shrink-0">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Admin Panel</h2>
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
+            <button
+                onClick={onBackToHome}
+                className="px-4 py-2 rounded-full text-sm font-semibold flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 transition-colors duration-300"
+            >
+                <HomeIcon className="w-5 h-5 mr-2" />
+                Back to Home
+            </button>
+        </div>
         <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+            <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
                 <TabButton label="Dashboard" tabName="dashboard" icon={<ClipboardListIcon className="w-5 h-5"/>} notificationCount={pendingOrderCount} />
+                <TabButton label="Sales" tabName="sales" icon={<DollarSignIcon className="w-5 h-5" />} />
                 <TabButton label="Media" tabName="media" icon={<SparklesIcon className="w-5 h-5"/>} />
+                <TabButton label="Advertising" tabName="advertising" icon={<MegaphoneIcon className="w-5 h-5" />} />
                 <TabButton label="Menu" tabName="menu" icon={<MenuIcon className="w-5 h-5"/>} />
                 <TabButton label="Add Order" tabName="addOrder" icon={<PlusCircleIcon className="w-5 h-5"/>} />
                 <TabButton label="Delivery Agents" tabName="deliveryAgents" icon={<UsersIcon className="w-5 h-5" />} />
@@ -556,7 +591,15 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
       
       <div className="flex-grow overflow-y-auto pt-4">
         {activeTab === 'dashboard' && <Dashboard orders={orders} deliveryAgents={deliveryAgents} onUpdate={onUpdate} />}
+        {activeTab === 'sales' && <SalesView orders={orders} />}
         {activeTab === 'media' && <MediaGenerator galleryItems={galleryItems} addGalleryItem={addGalleryItem} toggleHomePageAsset={toggleHomePageAsset} deleteGalleryItem={deleteGalleryItem} />}
+        {activeTab === 'advertising' && <AdvertisingManager 
+                                            galleryItems={galleryItems} 
+                                            advertisements={advertisements}
+                                            addAdvertisement={addAdvertisement}
+                                            toggleAdStatus={toggleAdStatus}
+                                            deleteAdvertisement={deleteAdvertisement}
+                                        />}
         {activeTab === 'menu' && <MenuManager menuItems={menuItems} addMenuItem={addMenuItem} />}
         {activeTab === 'addOrder' && <AddOrderForm menuItems={menuItems} addOrder={addOrder} setActiveTab={setActiveTab} />}
         {activeTab === 'deliveryAgents' && <DeliveryAgentsView orders={orders} deliveryAgents={deliveryAgents} onToggleAvailability={toggleAgentAvailability} />}

@@ -135,7 +135,7 @@ const VideoGenerator: React.FC<{ addGalleryItem: MediaGeneratorProps['addGallery
     const [progress, setProgress] = useState('');
     const [error, setError] = useState('');
     const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
-    const [isKeySelected, setIsKeySelected] = useState(true); // Assume true initially
+    const [isKeySelected, setIsKeySelected] = useState(false);
     const isLoading = !!progress;
 
     useEffect(() => {
@@ -148,7 +148,7 @@ const VideoGenerator: React.FC<{ addGalleryItem: MediaGeneratorProps['addGallery
         const hasKey = await window.aistudio.hasSelectedApiKey();
         if (!hasKey) {
             await window.aistudio.openSelectKey();
-            setIsKeySelected(true); 
+            setIsKeySelected(true); // Assume key selection is successful
             setError("API Key selected. Please click Generate again.");
             return;
         }
@@ -185,16 +185,16 @@ const VideoGenerator: React.FC<{ addGalleryItem: MediaGeneratorProps['addGallery
             alert('Video added to gallery!');
         }
     };
-
+    
     return (
         <div className="bg-white p-4 rounded-lg shadow-md border space-y-4">
             <h3 className="text-xl font-semibold text-gray-700">Generate Video</h3>
             {!isKeySelected && (
                 <div className="p-3 bg-yellow-50 text-yellow-800 rounded-md text-sm">
-                    Video generation requires a user-provided API key. Please <button onClick={() => window.aistudio.openSelectKey()} className="font-semibold underline hover:text-yellow-900">select a key</button> to continue. For more info, see the <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-yellow-900">billing documentation</a>.
+                    Video generation requires a user-provided API key. Please <button onClick={async () => { await window.aistudio.openSelectKey(); setIsKeySelected(true); }} className="font-semibold underline hover:text-yellow-900">select a key</button> to continue. For more info, see the <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-yellow-900">billing documentation</a>.
                 </div>
             )}
-             <textarea
+            <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="e.g., A drone shot of a tropical beach at sunrise"
@@ -316,13 +316,23 @@ const Uploader: React.FC<{ addGalleryItem: MediaGeneratorProps['addGalleryItem']
     );
 };
 
-const GalleryManager: React.FC<{ items: GalleryItem[]; onToggle: (id: string) => void; onDelete: (id: string) => void; }> = ({ items, onToggle, onDelete }) => {
+const GalleryManager: React.FC<{ items: GalleryItem[]; onToggle: (id: string) => void; onDelete: (id: string) => void; onGenerateNarration: (item: GalleryItem) => void; narratingItemId: string | null; }> = ({ items, onToggle, onDelete, onGenerateNarration, narratingItemId }) => {
     if (items.length === 0) {
         return (
-            <div className="text-center py-16 bg-white rounded-lg shadow-md border">
-                <UsersIcon className="w-16 h-16 mx-auto text-gray-300" />
-                <p className="mt-4 text-gray-500">Your gallery is empty.</p>
-                <p className="mt-1 text-sm text-gray-400">Upload or generate some media to get started.</p>
+            <div className="bg-white p-4 rounded-lg shadow-md border space-y-4">
+                <h3 className="text-xl font-semibold text-gray-700">Media Gallery</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" aria-hidden="true">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                        <div key={index} className="relative border border-gray-200 rounded-lg bg-gray-50">
+                            <div className="w-full h-32 flex items-center justify-center">
+                                <ImageIcon className="w-10 h-10 text-gray-300" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="text-center text-gray-500 pt-2">
+                    <p>Your gallery is empty. Upload or generate media to see it here.</p>
+                </div>
             </div>
         );
     }
@@ -334,35 +344,65 @@ const GalleryManager: React.FC<{ items: GalleryItem[]; onToggle: (id: string) =>
                     <div key={item.id} className="relative group border rounded-lg overflow-hidden shadow">
                        {item.type === 'image' ? (
                            <img src={item.url} alt={item.prompt} className="w-full h-32 object-cover" />
-                       ) : (
+                       ) : item.type === 'video' ? (
                            <video src={item.url} muted loop className="w-full h-32 object-cover" />
+                       ) : (
+                           <div className="w-full h-32 bg-teal-50 flex flex-col items-center justify-center p-2 text-teal-700">
+                               <MicIcon className="w-10 h-10" />
+                               <audio src={item.url} controls className="w-full h-8 mt-2" />
+                           </div>
                        )}
-                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                        <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2">
                             <p className="text-white text-xs text-center line-clamp-3">{item.prompt}</p>
                         </div>
-                        <button 
-                            onClick={() => onDelete(item.id)}
-                            className="absolute top-1 left-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
-                            aria-label="Delete item"
-                        >
-                            <TrashIcon className="w-4 h-4" />
-                        </button>
-                        <div className="absolute top-1 right-1 flex items-center bg-black/50 p-1 rounded-full">
-                           <label htmlFor={`toggle-hp-${item.id}`} className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    id={`toggle-hp-${item.id}`}
-                                    className="sr-only peer"
-                                    checked={item.isHomePageAsset}
-                                    onChange={() => onToggle(item.id)}
-                                />
-                                <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                            </label>
+
+                        <div className="absolute top-1 left-1 flex items-center space-x-1 z-10">
+                            <button 
+                                onClick={() => onDelete(item.id)}
+                                className="bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                                aria-label="Delete item"
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                            </button>
+                             {(item.type === 'image' || item.type === 'video') && (
+                                <button
+                                    onClick={() => onGenerateNarration(item)}
+                                    disabled={narratingItemId === item.id}
+                                    className="bg-blue-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-700 disabled:bg-gray-400 disabled:opacity-100"
+                                    aria-label="Generate Narration"
+                                >
+                                    {narratingItemId === item.id ? (
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    ) : (
+                                    <MicIcon className="w-4 h-4" />
+                                    )}
+                                </button>
+                            )}
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-white/80 px-2 py-1 text-xs text-gray-800 font-semibold flex items-center">
-                            <CheckCircleIcon className={`w-4 h-4 mr-1 ${item.isHomePageAsset ? 'text-green-600' : 'text-gray-300'}`} />
-                            <span className="truncate">Home Page</span>
-                        </div>
+
+                        {item.type !== 'audio' && (
+                            <>
+                                <div className="absolute top-1 right-1 flex items-center bg-black/50 p-1 rounded-full">
+                                    <label htmlFor={`toggle-hp-${item.id}`} className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                id={`toggle-hp-${item.id}`}
+                                                className="sr-only peer"
+                                                checked={item.isHomePageAsset}
+                                                onChange={() => onToggle(item.id)}
+                                            />
+                                            <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                        </label>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-white/80 px-2 py-1 text-xs text-gray-800 font-semibold flex items-center">
+                                    <CheckCircleIcon className={`w-4 h-4 mr-1 ${item.isHomePageAsset ? 'text-green-600' : 'text-gray-300'}`} />
+                                    <span className="truncate">Home Page</span>
+                                </div>
+                            </>
+                        )}
                     </div>
                 ))}
             </div>
@@ -372,6 +412,50 @@ const GalleryManager: React.FC<{ items: GalleryItem[]; onToggle: (id: string) =>
 
 const MediaGenerator: React.FC<MediaGeneratorProps> = ({ galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem }) => {
     const [activeTab, setActiveTab] = useState('gallery');
+    const [narratingItemId, setNarratingItemId] = useState<string | null>(null);
+    const [isVideoGenerationEnabled, setIsVideoGenerationEnabled] = useState(false);
+    const [showVideoEnableModal, setShowVideoEnableModal] = useState(false);
+
+    const handleVideoToggle = () => {
+        if (!isVideoGenerationEnabled) {
+            setShowVideoEnableModal(true);
+        } else {
+            if (activeTab === 'video') {
+                setActiveTab('gallery');
+            }
+            setIsVideoGenerationEnabled(false);
+        }
+    };
+
+    const confirmEnableVideo = () => {
+        setIsVideoGenerationEnabled(true);
+        setShowVideoEnableModal(false);
+    };
+
+    const handleGenerateNarration = async (item: GalleryItem) => {
+        if (!item.prompt) {
+          alert("This item has no prompt to narrate.");
+          return;
+        }
+        setNarratingItemId(item.id);
+        try {
+          const audioBuffer = await generateSpeechFromText(item.prompt);
+          const wavBlob = bufferToWave(audioBuffer, audioBuffer.length);
+          const url = URL.createObjectURL(wavBlob);
+          addGalleryItem({
+            type: 'audio',
+            url: url,
+            prompt: `Narration for: "${item.prompt}"`,
+            isHomePageAsset: false,
+          });
+          alert('Narration added to gallery as a new audio asset!');
+        } catch (e) {
+          alert(`Failed to generate narration: ${e instanceof Error ? e.message : 'Unknown error'}`);
+          console.error(e);
+        } finally {
+          setNarratingItemId(null);
+        }
+    };
 
     const TabButton: React.FC<{label: string, tabName: string, icon: React.ReactNode}> = ({label, tabName, icon}) => (
         <button
@@ -389,22 +473,54 @@ const MediaGenerator: React.FC<MediaGeneratorProps> = ({ galleryItems, addGaller
     
     return (
         <div className="space-y-4">
-            <div className="flex space-x-2 border-b">
-                <TabButton label="Gallery" tabName="gallery" icon={<UsersIcon className="w-5 h-5" />} />
-                <TabButton label="Upload" tabName="upload" icon={<UploadIcon className="w-5 h-5" />} />
-                <TabButton label="Generate Image" tabName="image" icon={<ImageIcon className="w-5 h-5" />} />
-                <TabButton label="Generate Video" tabName="video" icon={<VideoIcon className="w-5 h-5" />} />
-                <TabButton label="Generate Voice" tabName="voice" icon={<MicIcon className="w-5 h-5" />} />
-            </div>
-            <div className="p-1">
-                {activeTab === 'gallery' && <GalleryManager items={galleryItems} onToggle={toggleHomePageAsset} onDelete={deleteGalleryItem} />}
-                {activeTab === 'upload' && <Uploader addGalleryItem={addGalleryItem} />}
-                {activeTab === 'image' && <ImageGenerator addGalleryItem={addGalleryItem} />}
-                {activeTab === 'video' && <VideoGenerator addGalleryItem={addGalleryItem} />}
-                {activeTab === 'voice' && <VoiceGenerator />}
-            </div>
-        </div>
-    );
-};
-
-export default MediaGenerator;
+            {showVideoEnableModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-auto animate-fade-in-up">
+                        <h2 className="text-xl font-bold text-gray-800 mb-4">Enable Video Generation</h2>
+                        <div className="p-4 bg-blue-50 text-blue-800 rounded-lg text-sm text-left space-y-2">
+                            <p className="font-semibold">Please be aware:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                                <li>This feature uses advanced video generation models which may incur costs on your API key.</li>
+                                <li>A valid API key with billing enabled is required for this feature to work.</li>
+                                <li>You will be prompted to select your API key if one is not already configured after enabling.</li>
+                            </ul>
+                            <div className="text-center pt-2">
+                                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-blue-600 hover:underline">
+                                    Learn more about billing
+                                </a>
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end space-x-3">
+                            <button
+                                onClick={() => setShowVideoEnableModal(false)}
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-semibold hover:bg-gray-300 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmEnableVideo}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-md font-semibold hover:bg-blue-600 transition-colors"
+                            >
+                                Acknowledge & Enable
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+             <div className="bg-white p-3 rounded-lg shadow-md border flex justify-between items-center">
+                <div className="flex items-center">
+                    <VideoIcon className="w-6 h-6 mr-3 text-purple-500" />
+                    <div>
+                        <h4 className="font-semibold text-gray-800">Advanced Video Generation</h4>
+                        <p className="text-sm text-gray-500">Enable to generate videos from text prompts.</p>
+                    </div>
+                </div>
+                <label htmlFor="video-toggle" className="relative inline-flex items-center cursor-pointer">
+                    <input
+                        type="checkbox"
+                        id="video-toggle"
+                        className="sr-only peer"
+                        checked={isVideoGenerationEnabled}
+                        onChange={handleVideoToggle}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer

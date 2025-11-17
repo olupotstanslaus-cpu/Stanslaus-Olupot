@@ -2,19 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, Order, ChatStep, MenuItem, PaymentMethod } from '../types';
 import { BOT_NAME, PAYMENT_METHODS } from '../constants';
 import { generateBotResponse } from '../services/geminiService';
-import { SendIcon, BotIcon, UserIcon, CheckCircleIcon, DotIcon, XCircleIcon, ClipboardListIcon } from './Icons';
+import { SendIcon, BotIcon, UserIcon, CheckCircleIcon, DotIcon, XCircleIcon, ClipboardListIcon, HomeIcon } from './Icons';
 
 interface CustomerViewProps {
   addOrder: (newOrder: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => void;
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   menuItems: MenuItem[];
+  onBackToHome: () => void;
 }
 
-const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages, menuItems }) => {
+const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages, menuItems, onBackToHome }) => {
   const [input, setInput] = useState('');
   const [chatStep, setChatStep] = useState<ChatStep>(ChatStep.GREETING);
-  const [orderDetails, setOrderDetails] = useState({ name: '', item: '', address: '', payment: '' as PaymentMethod });
+  const [orderDetails, setOrderDetails] = useState({ name: '', phone: '', item: '', address: '', payment: '' as PaymentMethod });
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [isConfirmationModalVisible, setIsConfirmationModalVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -56,12 +57,17 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
   }, []);
   
   const handleFinalConfirm = () => {
+    const orderedMenuItem = menuItems.find(item => item.name === orderDetails.item);
+    const itemPrice = orderedMenuItem ? orderedMenuItem.price : 0; // Should always be found now
+
     const finalOrder = {
        customerName: orderDetails.name,
+       customerNumber: orderDetails.phone,
        item: orderDetails.item,
+       price: itemPrice,
        address: orderDetails.address,
        paymentMethod: orderDetails.payment,
-       timestamp: new Date().toLocaleTimeString(),
+       timestamp: new Date().toISOString(),
     };
     addOrder(finalOrder);
     handleBotResponse(`The user confirmed the order. Thank them and let them know their order has been placed successfully. Tell them they will be notified here once an admin approves it.`);
@@ -72,7 +78,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
   const handleModalCancel = () => {
     handleBotResponse(`The user cancelled the order from the final confirmation. Apologize and ask if they would like to start over.`);
     setChatStep(ChatStep.GREETING);
-    setOrderDetails({ name: '', item: '', address: '', payment: '' as PaymentMethod });
+    setOrderDetails({ name: '', phone: '', item: '', address: '', payment: '' as PaymentMethod });
     setIsConfirmationModalVisible(false);
   };
 
@@ -85,14 +91,24 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
     switch (chatStep) {
       case ChatStep.ASK_NAME:
         setOrderDetails(prev => ({ ...prev, name: userInput }));
+        handleBotResponse(`The user's name is ${userInput}. Welcome them by name. Please provide your phone number.`);
+        setChatStep(ChatStep.ASK_PHONE);
+        break;
+      case ChatStep.ASK_PHONE:
+        setOrderDetails(prev => ({ ...prev, phone: userInput }));
         const menuString = menuItems.map(item => `- ${item.name} ($${item.price.toFixed(2)})`).join('\n');
-        handleBotResponse(`The user's name is ${userInput}. Welcome them by name. Here is our menu:\n${menuString}\n\nPlease ask them what they would like to order.`);
+        handleBotResponse(`Got it. Here is our menu:\n${menuString}\n\nPlease tell me what you would like to order.`);
         setChatStep(ChatStep.ASK_ITEM);
         break;
       case ChatStep.ASK_ITEM:
-        setOrderDetails(prev => ({ ...prev, item: userInput }));
-        handleBotResponse(`The user wants to order: "${userInput}". Acknowledge the item and ask for their delivery address.`);
-        setChatStep(ChatStep.ASK_ADDRESS);
+        const orderedMenuItem = menuItems.find(item => item.name.toLowerCase() === userInput.trim().toLowerCase());
+        if (orderedMenuItem) {
+            setOrderDetails(prev => ({ ...prev, item: orderedMenuItem.name }));
+            handleBotResponse(`The user wants to order: "${orderedMenuItem.name}". Acknowledge the item and ask for their delivery address.`);
+            setChatStep(ChatStep.ASK_ADDRESS);
+        } else {
+            handleBotResponse(`Sorry, I couldn't find "${userInput}" on our menu. Please choose an item from the list I provided.`);
+        }
         break;
       case ChatStep.ASK_ADDRESS:
         setOrderDetails(prev => ({ ...prev, address: userInput }));
@@ -108,6 +124,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
             handleBotResponse(
               `Perfect. Here is your order summary for confirmation:
                - Name: ${currentOrder.name}
+               - Phone: ${currentOrder.phone}
                - Item: ${currentOrder.item}
                - Address: ${currentOrder.address}
                - Payment: ${currentOrder.payment}
@@ -124,7 +141,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
         } else {
           handleBotResponse(`The user cancelled the order. Apologize and ask if they would like to start over.`);
           setChatStep(ChatStep.GREETING); // Reset
-          setOrderDetails({ name: '', item: '', address: '', payment: '' as PaymentMethod });
+          setOrderDetails({ name: '', phone: '', item: '', address: '', payment: '' as PaymentMethod });
         }
         break;
       case ChatStep.ORDER_PLACED:
@@ -148,6 +165,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
                 <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Confirm Your Order</h2>
                 <div className="space-y-3 text-gray-700 my-4">
                     <p><strong>Name:</strong> {orderDetails.name}</p>
+                    <p><strong>Phone:</strong> {orderDetails.phone}</p>
                     <p><strong>Item:</strong> {orderDetails.item}</p>
                     <p><strong>Address:</strong> {orderDetails.address}</p>
                     <p><strong>Payment:</strong> {orderDetails.payment}</p>
@@ -169,14 +187,24 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
             </div>
         </div>
       )}
-      <div className="bg-[#075E54] text-white p-3 flex items-center shadow-md">
-        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center mr-3">
-            <BotIcon className="w-8 h-8 text-green-600" />
+      <div className="bg-[#075E54] text-white p-3 flex items-center justify-between shadow-md">
+        <div className='flex items-center'>
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center mr-3">
+                <BotIcon className="w-8 h-8 text-green-600" />
+            </div>
+            <div>
+            <h2 className="font-bold text-lg">{BOT_NAME}</h2>
+            <p className="text-sm text-gray-200">Online</p>
+            </div>
         </div>
-        <div>
-          <h2 className="font-bold text-lg">{BOT_NAME}</h2>
-          <p className="text-sm text-gray-200">Online</p>
-        </div>
+        <button
+            onClick={onBackToHome}
+            className="p-2 rounded-full text-sm font-semibold flex items-center bg-white/20 hover:bg-white/30 transition-colors duration-300"
+            aria-label="Back to Home"
+        >
+            <HomeIcon className="w-5 h-5" />
+            <span className="sr-only">Back to Home</span>
+        </button>
       </div>
       <div className="flex-grow p-4 overflow-y-auto" style={{backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")'}}>
         {messages.map((msg, index) => (

@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { UserRole, Order, OrderStatus, MenuItem, DeliveryAgent, GalleryItem } from './types';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { UserRole, Order, OrderStatus, MenuItem, DeliveryAgent, GalleryItem, Advertisement } from './types';
 import CustomerView from './components/CustomerView';
 import AdminView from './components/AdminView';
-import { BotIcon, UserShieldIcon } from './components/Icons';
+import { BotIcon, UserShieldIcon, HomeIcon } from './components/Icons';
 import { DELIVERY_AGENTS, INITIAL_MENU_ITEMS } from './constants';
 import HomePage from './components/HomePage';
 
@@ -15,6 +15,9 @@ const App: React.FC = () => {
   const [deliveryAgents, setDeliveryAgents] = useState<DeliveryAgent[]>(DELIVERY_AGENTS);
   const [unreadCustomerNotifications, setUnreadCustomerNotifications] = useState(0);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
+  const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
+  
+  const goHome = useCallback(() => setView('home'), []);
 
   const addGalleryItem = useCallback((item: Omit<GalleryItem, 'id'>) => {
     setGalleryItems(prev => [...prev, { ...item, id: `${Date.now()}` }]);
@@ -32,6 +35,22 @@ const App: React.FC = () => {
         item.id === itemId ? { ...item, isHomePageAsset: !item.isHomePageAsset } : item
       )
     );
+  }, []);
+
+  const addAdvertisement = useCallback((ad: Omit<Advertisement, 'id'>) => {
+    setAdvertisements(prev => [...prev, { ...ad, id: `${Date.now()}` }]);
+  }, []);
+
+  const toggleAdStatus = useCallback((adId: string) => {
+    setAdvertisements(prev =>
+      prev.map(ad => (ad.id === adId ? { ...ad, isActive: !ad.isActive } : ad))
+    );
+  }, []);
+
+  const deleteAdvertisement = useCallback((adId: string) => {
+    if (window.confirm('Are you sure you want to delete this advertisement?')) {
+      setAdvertisements(prev => prev.filter(ad => ad.id !== adId));
+    }
   }, []);
 
   const addOrder = (newOrder: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => {
@@ -136,7 +155,9 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-200 flex flex-col items-center justify-center font-sans">
       <div className="w-full max-w-4xl h-[95vh] max-h-[800px] bg-white shadow-2xl rounded-lg flex flex-col">
         <header className="bg-gray-800 text-white p-4 rounded-t-lg">
-          <h1 className="text-2xl font-bold text-center">WhatsApp Quick Order</h1>
+          <div className="flex justify-center items-center">
+            <h1 className="text-2xl font-bold text-center">WhatsApp Quick Order</h1>
+          </div>
           <div className="flex justify-center items-center mt-4 space-x-2">
             <button
               onClick={() => handleRoleChange(UserRole.CUSTOMER)}
@@ -171,6 +192,7 @@ const App: React.FC = () => {
               messages={customerMessages} 
               setMessages={setCustomerMessages} 
               menuItems={menuItems} 
+              onBackToHome={goHome}
             />
           ) : (
             <AdminView 
@@ -185,6 +207,11 @@ const App: React.FC = () => {
               addGalleryItem={addGalleryItem}
               toggleHomePageAsset={toggleHomePageAsset}
               deleteGalleryItem={deleteGalleryItem}
+              advertisements={advertisements}
+              addAdvertisement={addAdvertisement}
+              toggleAdStatus={toggleAdStatus}
+              deleteAdvertisement={deleteAdvertisement}
+              onBackToHome={goHome}
             />
           )}
         </main>

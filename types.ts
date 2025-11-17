@@ -31,7 +31,9 @@ export interface MenuItem {
 export interface Order {
   id: number;
   customerName: string;
+  customerNumber: string;
   item: string;
+  price: number;
   address: string;
   timestamp: string;
   status: OrderStatus;
@@ -50,6 +52,7 @@ export interface Message {
 export enum ChatStep {
   GREETING,
   ASK_NAME,
+  ASK_PHONE,
   ASK_ITEM,
   ASK_ADDRESS,
   ASK_PAYMENT,
@@ -60,8 +63,16 @@ export enum ChatStep {
 
 export interface GalleryItem {
   id: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   url: string; // base64 or object URL
   prompt: string;
   isHomePageAsset: boolean;
+}
+
+export interface Advertisement {
+  id: string;
+  headline: string;
+  body: string;
+  imageId: string | null; // Corresponds to GalleryItem id
+  isActive: boolean;
 }

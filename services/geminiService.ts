@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Modality } from "@google/genai";
 import { BOT_NAME } from '../constants';
 
@@ -27,6 +28,28 @@ export const generateBotResponse = async (prompt: string): Promise<string> => {
   } catch (error) {
     console.error('Error generating content from Gemini:', error);
     throw new Error('Failed to get response from AI');
+  }
+};
+
+const AD_SYSTEM_INSTRUCTION = `You are a witty and effective marketing copywriter for a food delivery service called '${BOT_NAME}'. Generate 3 distinct, short, and punchy advertising copy options based on the user's prompt. The tone should be perfect for social media ads (like Instagram or Facebook) and WhatsApp promotions. Use emojis appropriately. Each option should be separated by '---'.`;
+
+export const generateAdCopy = async (prompt: string): Promise<string[]> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `${AD_SYSTEM_INSTRUCTION}\n\nUser Prompt: ${prompt}`,
+      config: {
+        temperature: 0.8,
+      }
+    });
+    
+    const text = response.text;
+    return text.split('---').map(ad => ad.trim()).filter(ad => ad.length > 0);
+
+  } catch (error) {
+    console.error('Error generating ad copy from Gemini:', error);
+    throw new Error('Failed to get response from AI for ad copy');
   }
 };
 
