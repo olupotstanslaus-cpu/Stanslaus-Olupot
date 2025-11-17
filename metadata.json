@@ -1,0 +1,5 @@
+{
+  "name": "WhatsApp Order Chatbot",
+  "description": "A simulated WhatsApp chatbot for customers to place orders, and an admin panel for viewing, approving, and assigning orders to delivery agents. The application uses the Gemini API to generate conversational responses for the chatbot.",
+  "requestFramePermissions": []
+}
