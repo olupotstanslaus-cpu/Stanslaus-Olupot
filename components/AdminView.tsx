@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { Order, OrderStatus, DeliveryAgent } from '../types';
+import { Order, OrderStatus, DeliveryAgent, MenuItem } from '../types';
 import { DELIVERY_AGENTS } from '../constants';
-import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon } from './Icons';
+import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon } from './Icons';
 
 interface AdminViewProps {
   orders: Order[];
   updateOrderStatus: (orderId: number, status: OrderStatus, deliveryAgentId?: string) => void;
+  menuItems: MenuItem[];
+  addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
+  addOrder: (order: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => void;
 }
 
 const getStatusIcon = (status: OrderStatus) => {
@@ -42,17 +45,13 @@ const getStatusColorClass = (status: OrderStatus) => {
     }
   };
 
-
 const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, status: OrderStatus, deliveryAgent?: DeliveryAgent) => void }> = ({ order, onUpdateStatus }) => {
     const [selectedAgent, setSelectedAgent] = useState<DeliveryAgent | null>(null);
     const [showAgentSelect, setShowAgentSelect] = useState(false);
 
-    const handleApprove = () => {
-        onUpdateStatus(order.id, OrderStatus.APPROVED);
-    };
-
+    const handleApprove = () => onUpdateStatus(order.id, OrderStatus.APPROVED);
     const handleAssign = () => {
-        if(selectedAgent){
+        if(selectedAgent) {
             onUpdateStatus(order.id, OrderStatus.OUT_FOR_DELIVERY, selectedAgent);
             setShowAgentSelect(false);
         }
@@ -114,58 +113,212 @@ const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, stat
   )
 }
 
+const MenuManager: React.FC<{ menuItems: MenuItem[]; addMenuItem: (item: Omit<MenuItem, 'id'>) => void; }> = ({ menuItems, addMenuItem }) => {
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemPrice, setNewItemPrice] = useState('');
 
-const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus }) => {
-  const onUpdate = (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => {
-    updateOrderStatus(orderId, status, agent?.id);
-  }
+    const handleAddItem = (e: React.FormEvent) => {
+        e.preventDefault();
+        const price = parseFloat(newItemPrice);
+        if (newItemName.trim() && !isNaN(price) && price > 0) {
+            addMenuItem({ name: newItemName, price });
+            setNewItemName('');
+            setNewItemPrice('');
+        }
+    };
 
+    return (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-3">Add New Menu Item</h3>
+                <form onSubmit={handleAddItem} className="bg-white p-4 rounded-lg shadow-md border space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="itemName" className="block mb-2 text-sm font-medium text-gray-900">Item Name</label>
+                            <input
+                                type="text"
+                                id="itemName"
+                                value={newItemName}
+                                onChange={(e) => setNewItemName(e.target.value)}
+                                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                placeholder="e.g., Pepperoni Pizza"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="itemPrice" className="block mb-2 text-sm font-medium text-gray-900">Price</label>
+                            <input
+                                type="number"
+                                id="itemPrice"
+                                value={newItemPrice}
+                                onChange={(e) => setNewItemPrice(e.target.value)}
+                                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                placeholder="e.g., 14.99"
+                                required
+                                step="0.01"
+                                min="0"
+                            />
+                        </div>
+                    </div>
+                    <button type="submit" className="w-full bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 transition-colors flex items-center justify-center">
+                        <PlusCircleIcon className="w-5 h-5 mr-2" /> Add Item
+                    </button>
+                </form>
+            </div>
+            <div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-3">Current Menu</h3>
+                <div className="bg-white p-4 rounded-lg shadow-md border">
+                    <ul className="space-y-2">
+                        {menuItems.map(item => (
+                            <li key={item.id} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-50">
+                                <span className="text-gray-800">{item.name}</span>
+                                <span className="font-semibold text-gray-600">${item.price.toFixed(2)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Order, 'id'|'status'|'deliveryAgent'>) => void; setActiveTab: (tab: string) => void }> = ({ menuItems, addOrder, setActiveTab }) => {
+    const [customerName, setCustomerName] = useState('');
+    const [address, setAddress] = useState('');
+    const [selectedItem, setSelectedItem] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (customerName.trim() && address.trim() && selectedItem) {
+            addOrder({
+                customerName,
+                address,
+                item: selectedItem,
+                timestamp: new Date().toLocaleTimeString()
+            });
+            setCustomerName('');
+            setAddress('');
+            setSelectedItem('');
+            alert('Order added successfully!');
+            setActiveTab('dashboard');
+        }
+    };
+
+    return (
+        <div>
+             <h3 className="text-xl font-semibold text-gray-700 mb-3">Create a New Order</h3>
+             <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow-md border space-y-4">
+                <div>
+                    <label htmlFor="customerName" className="block mb-2 text-sm font-medium text-gray-900">Customer Name</label>
+                    <input type="text" id="customerName" value={customerName} onChange={e => setCustomerName(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
+                </div>
+                <div>
+                    <label htmlFor="item" className="block mb-2 text-sm font-medium text-gray-900">Menu Item</label>
+                    <select id="item" value={selectedItem} onChange={e => setSelectedItem(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                        <option value="">Select an item</option>
+                        {menuItems.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
+                    </select>
+                </div>
+                 <div>
+                    <label htmlFor="address" className="block mb-2 text-sm font-medium text-gray-900">Delivery Address</label>
+                    <textarea id="address" value={address} onChange={e => setAddress(e.target.value)} rows={3} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required></textarea>
+                </div>
+                <button type="submit" className="w-full bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center">
+                    <PlusCircleIcon className="w-5 h-5 mr-2" /> Create Order
+                </button>
+             </form>
+        </div>
+    );
+}
+
+const Dashboard: React.FC<{orders: Order[], onUpdate: (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => void}> = ({orders, onUpdate}) => {
   const pendingOrders = orders.filter(o => o.status === OrderStatus.PENDING);
   const approvedOrders = orders.filter(o => o.status === OrderStatus.APPROVED);
   const inDeliveryOrders = orders.filter(o => o.status === OrderStatus.OUT_FOR_DELIVERY);
   const completedOrders = orders.filter(o => o.status === OrderStatus.DELIVERED || o.status === OrderStatus.CANCELLED);
-  
-  return (
-    <div className="p-4 bg-gray-50 h-full overflow-y-auto">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Admin Dashboard</h2>
-      
-      {orders.length === 0 ? (
+
+  if (orders.length === 0) {
+      return (
         <div className="text-center py-16">
             <ClipboardListIcon className="w-16 h-16 mx-auto text-gray-300" />
             <p className="mt-4 text-gray-500">No orders have been placed yet.</p>
         </div>
-      ) : (
-        <div className="space-y-6">
-            <section>
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Pending Orders ({pendingOrders.length})</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {pendingOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                    {pendingOrders.length === 0 && <p className="text-gray-500 col-span-full">No pending orders.</p>}
-                </div>
-            </section>
-            <section>
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Approved for Delivery ({approvedOrders.length})</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {approvedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                     {approvedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are currently approved.</p>}
-                </div>
-            </section>
-            <section>
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Out for Delivery ({inDeliveryOrders.length})</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {inDeliveryOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                    {inDeliveryOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are out for delivery.</p>}
-                </div>
-            </section>
-             <section>
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Completed Orders ({completedOrders.length})</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {completedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
-                    {completedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders have been completed or cancelled.</p>}
-                </div>
-            </section>
+      )
+  }
+
+  return (
+      <div className="space-y-6">
+        <section>
+            <h3 className="text-xl font-semibold text-gray-700 mb-3">Pending Orders ({pendingOrders.length})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pendingOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                {pendingOrders.length === 0 && <p className="text-gray-500 col-span-full">No pending orders.</p>}
+            </div>
+        </section>
+        <section>
+            <h3 className="text-xl font-semibold text-gray-700 mb-3">Approved for Delivery ({approvedOrders.length})</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {approvedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                 {approvedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are currently approved.</p>}
+            </div>
+        </section>
+        <section>
+            <h3 className="text-xl font-semibold text-gray-700 mb-3">Out for Delivery ({inDeliveryOrders.length})</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {inDeliveryOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                {inDeliveryOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are out for delivery.</p>}
+            </div>
+        </section>
+         <section>
+            <h3 className="text-xl font-semibold text-gray-700 mb-3">Completed Orders ({completedOrders.length})</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {completedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                {completedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders have been completed or cancelled.</p>}
+            </div>
+        </section>
+    </div>
+  );
+}
+
+const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder }) => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  const onUpdate = (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => {
+    updateOrderStatus(orderId, status, agent?.id);
+  }
+
+  const TabButton: React.FC<{label: string, tabName: string, icon: React.ReactNode}> = ({label, tabName, icon}) => (
+     <button
+        onClick={() => setActiveTab(tabName)}
+        className={`flex items-center space-x-2 py-2 px-4 text-sm font-medium text-center rounded-t-lg transition-colors ${
+            activeTab === tabName
+            ? 'border-b-2 border-blue-500 text-blue-600'
+            : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+        }`}
+        >
+        {icon}
+        <span>{label}</span>
+    </button>
+  );
+  
+  return (
+    <div className="p-4 bg-gray-50 h-full flex flex-col">
+      <div className="flex-shrink-0">
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">Admin Panel</h2>
+        <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+                <TabButton label="Order Dashboard" tabName="dashboard" icon={<ClipboardListIcon className="w-5 h-5"/>} />
+                <TabButton label="Menu Manager" tabName="menu" icon={<MenuIcon className="w-5 h-5"/>} />
+                <TabButton label="Add Order" tabName="addOrder" icon={<PlusCircleIcon className="w-5 h-5"/>} />
+            </nav>
         </div>
-      )}
+      </div>
+      
+      <div className="flex-grow overflow-y-auto pt-4">
+        {activeTab === 'dashboard' && <Dashboard orders={orders} onUpdate={onUpdate} />}
+        {activeTab === 'menu' && <MenuManager menuItems={menuItems} addMenuItem={addMenuItem} />}
+        {activeTab === 'addOrder' && <AddOrderForm menuItems={menuItems} addOrder={addOrder} setActiveTab={setActiveTab} />}
+      </div>
     </div>
   );
 };

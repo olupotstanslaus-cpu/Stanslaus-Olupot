@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, Order, ChatStep } from '../types';
+import { Message, Order, ChatStep, MenuItem } from '../types';
 import { BOT_NAME } from '../constants';
 import { generateBotResponse } from '../services/geminiService';
 import { SendIcon, BotIcon, UserIcon, CheckCircleIcon, DotIcon } from './Icons';
@@ -9,9 +8,10 @@ interface CustomerViewProps {
   addOrder: (newOrder: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => void;
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  menuItems: MenuItem[];
 }
 
-const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages }) => {
+const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages, menuItems }) => {
   const [input, setInput] = useState('');
   const [chatStep, setChatStep] = useState<ChatStep>(ChatStep.GREETING);
   const [orderDetails, setOrderDetails] = useState({ name: '', item: '', address: '' });
@@ -62,7 +62,8 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
     switch (chatStep) {
       case ChatStep.ASK_NAME:
         setOrderDetails(prev => ({ ...prev, name: userInput }));
-        handleBotResponse(`The user's name is ${userInput}. Welcome them by name and ask what they would like to order.`);
+        const menuString = menuItems.map(item => `- ${item.name} ($${item.price.toFixed(2)})`).join('\n');
+        handleBotResponse(`The user's name is ${userInput}. Welcome them by name. Here is our menu:\n${menuString}\n\nPlease ask them what they would like to order.`);
         setChatStep(ChatStep.ASK_ITEM);
         break;
       case ChatStep.ASK_ITEM:
@@ -159,10 +160,12 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
           onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           placeholder={isBotTyping ? "Bot is typing..." : "Type a message"}
           className="flex-grow rounded-full py-2 px-4 bg-white border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
+          // FIX: Corrected typo from isBotyping to isBotTyping.
           disabled={isBotTyping || chatStep === ChatStep.ORDER_PLACED}
         />
         <button
           onClick={handleSend}
+          // FIX: Corrected typo from isBotyping to isBotTyping.
           disabled={isBotTyping || chatStep === ChatStep.ORDER_PLACED}
           className="bg-[#128C7E] text-white rounded-full p-3 ml-3 hover:bg-[#075E54] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
         >

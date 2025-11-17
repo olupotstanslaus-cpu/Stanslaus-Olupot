@@ -1,14 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { UserRole, Order, OrderStatus } from './types';
+import { UserRole, Order, OrderStatus, MenuItem } from './types';
 import CustomerView from './components/CustomerView';
 import AdminView from './components/AdminView';
 import { BotIcon, UserShieldIcon } from './components/Icons';
-import { DELIVERY_AGENTS } from './constants';
+import { DELIVERY_AGENTS, INITIAL_MENU_ITEMS } from './constants';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.CUSTOMER);
   const [orders, setOrders] = useState<Order[]>([]);
   const [customerMessages, setCustomerMessages] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
 
   const addOrder = (newOrder: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => {
     setOrders(prevOrders => [
@@ -20,6 +21,10 @@ const App: React.FC = () => {
         deliveryAgent: null,
       },
     ]);
+  };
+
+  const addMenuItem = (newItem: Omit<MenuItem, 'id'>) => {
+    setMenuItems(prev => [...prev, { ...newItem, id: Date.now() }]);
   };
   
   const updateOrderStatus = useCallback((orderId: number, status: OrderStatus, deliveryAgentId?: string) => {
@@ -98,9 +103,15 @@ const App: React.FC = () => {
         </header>
         <main className="flex-grow overflow-hidden">
           {role === UserRole.CUSTOMER ? (
-            <CustomerView addOrder={addOrder} messages={customerMessages} setMessages={setCustomerMessages} />
+            <CustomerView addOrder={addOrder} messages={customerMessages} setMessages={setCustomerMessages} menuItems={menuItems} />
           ) : (
-            <AdminView orders={orders} updateOrderStatus={updateOrderStatus} />
+            <AdminView 
+              orders={orders} 
+              updateOrderStatus={updateOrderStatus}
+              menuItems={menuItems}
+              addMenuItem={addMenuItem}
+              addOrder={addOrder}
+            />
           )}
         </main>
       </div>

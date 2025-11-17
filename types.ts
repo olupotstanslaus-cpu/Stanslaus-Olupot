@@ -1,4 +1,3 @@
-
 export enum UserRole {
   CUSTOMER = 'customer',
   ADMIN = 'admin',
@@ -15,6 +14,12 @@ export enum OrderStatus {
 export interface DeliveryAgent {
   id: string;
   name: string;
+}
+
+export interface MenuItem {
+  id: number;
+  name: string;
+  price: number;
 }
 
 export interface Order {
