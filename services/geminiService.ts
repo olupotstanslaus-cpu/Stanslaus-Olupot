@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, Modality } from "@google/genai";
 import { BOT_NAME } from '../constants';
 
@@ -178,12 +176,12 @@ export const generateSpeechFromText = async (text: string): Promise<AudioBuffer>
         const ai = new GoogleGenAI({ apiKey: API_KEY });
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: `Say this naturally: ${text}` }] }],
+            contents: [{ parts: [{ text: `Narration: ${text}` }] }],
             config: {
               responseModalities: [Modality.AUDIO],
               speechConfig: {
                   voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Kore' },
+                    prebuiltVoiceConfig: { voiceName: 'Puck' },
                   },
               },
             },
