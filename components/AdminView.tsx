@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Order, OrderStatus, DeliveryAgent, MenuItem, DeliveryZone, PaymentMethod } from '../types';
-import { DELIVERY_AGENTS, PAYMENT_METHODS } from '../constants';
-import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon, MapPinIcon, UsersIcon } from './Icons';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Order, OrderStatus, DeliveryAgent, MenuItem, PaymentMethod } from '../types';
+import { PAYMENT_METHODS } from '../constants';
+import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon, UsersIcon, BellIcon, XIcon } from './Icons';
 
 interface AdminViewProps {
   orders: Order[];
@@ -9,8 +9,8 @@ interface AdminViewProps {
   menuItems: MenuItem[];
   addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
   addOrder: (order: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => void;
-  deliveryZones: DeliveryZone[];
-  addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => void;
+  deliveryAgents: DeliveryAgent[];
+  toggleAgentAvailability: (agentId: string) => void;
 }
 
 const getStatusIcon = (status: OrderStatus) => {
@@ -47,17 +47,40 @@ const getStatusColorClass = (status: OrderStatus) => {
     }
   };
 
-const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, status: OrderStatus, deliveryAgent?: DeliveryAgent) => void }> = ({ order, onUpdateStatus }) => {
+const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, status: OrderStatus, deliveryAgent?: DeliveryAgent) => void, deliveryAgents: DeliveryAgent[] }> = ({ order, onUpdateStatus, deliveryAgents }) => {
     const [selectedAgent, setSelectedAgent] = useState<DeliveryAgent | null>(null);
-    const [showAgentSelect, setShowAgentSelect] = useState(false);
+    const [isAssigning, setIsAssigning] = useState(false);
+    
+    const availableAgents = deliveryAgents.filter(agent => agent.isAvailable);
 
-    const handleApprove = () => onUpdateStatus(order.id, OrderStatus.APPROVED);
-    const handleAssign = () => {
+    const handleConfirmAssignment = () => {
         if(selectedAgent) {
             onUpdateStatus(order.id, OrderStatus.OUT_FOR_DELIVERY, selectedAgent);
-            setShowAgentSelect(false);
+            setIsAssigning(false);
         }
     }
+    
+    const renderAssignUI = () => (
+        <div className="w-full space-y-2">
+            <div className="relative">
+                <select
+                    onChange={(e) => setSelectedAgent(availableAgents.find(a => a.id === e.target.value) || null)}
+                    className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                >
+                    <option value="">Select an agent</option>
+                    {availableAgents.map(agent => (
+                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                    ))}
+                </select>
+                <ChevronDownIcon className="w-5 h-5 text-gray-500 absolute top-1/2 right-3 -translate-y-1/2 pointer-events-none" />
+            </div>
+            {availableAgents.length === 0 && <p className="text-xs text-center text-red-600">No delivery agents are currently available.</p>}
+            <div className="flex space-x-2">
+                <button onClick={handleConfirmAssignment} disabled={!selectedAgent} className="flex-grow bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">Confirm Assignment</button>
+                <button onClick={() => setIsAssigning(false)} className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">Cancel</button>
+            </div>
+        </div>
+    );
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 transition-shadow hover:shadow-lg flex flex-col justify-between">
@@ -73,7 +96,6 @@ const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, stat
                 <p><strong>Customer:</strong> {order.customerName}</p>
                 <p><strong>Item:</strong> {order.item}</p>
                 <p><strong>Address:</strong> {order.address}</p>
-                <p><strong>Zone:</strong> {order.deliveryZone}</p>
                 <p><strong>Payment:</strong> {order.paymentMethod}</p>
                 <p className="text-xs text-gray-400 pt-1"><strong>Time:</strong> {order.timestamp}</p>
                  {order.deliveryAgent && <p><strong>Agent:</strong> {order.deliveryAgent.name}</p>}
@@ -81,30 +103,22 @@ const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, stat
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
             {order.status === OrderStatus.PENDING && (
-                <button onClick={handleApprove} className="w-full bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 transition-colors">Approve</button>
-            )}
-            {order.status === OrderStatus.APPROVED && !showAgentSelect && (
-                 <button onClick={() => setShowAgentSelect(true)} className="w-full bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition-colors">Assign to Delivery Agent</button>
-            )}
-            {showAgentSelect && (
-                <div className="w-full space-y-2">
-                    <div className="relative">
-                        <select
-                            onChange={(e) => setSelectedAgent(DELIVERY_AGENTS.find(a => a.id === e.target.value) || null)}
-                            className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
-                        >
-                            <option value="">Select an agent</option>
-                            {DELIVERY_AGENTS.map(agent => (
-                                <option key={agent.id} value={agent.id}>{agent.name}</option>
-                            ))}
-                        </select>
-                        <ChevronDownIcon className="w-5 h-5 text-gray-500 absolute top-1/2 right-3 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                    <div className="flex space-x-2">
-                        <button onClick={handleAssign} disabled={!selectedAgent} className="flex-grow bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">Confirm Assignment</button>
-                        <button onClick={() => setShowAgentSelect(false)} className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">Cancel</button>
-                    </div>
+                <div className="w-full flex space-x-2">
+                    <button onClick={() => onUpdateStatus(order.id, OrderStatus.APPROVED)} className="flex-grow bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 transition-colors">Approve Order</button>
+                    <button onClick={() => onUpdateStatus(order.id, OrderStatus.CANCELLED)} className="flex-grow bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors">Cancel</button>
                 </div>
+            )}
+            {order.status === OrderStatus.APPROVED && (
+                !isAssigning ? (
+                    <button 
+                        onClick={() => setIsAssigning(true)} 
+                        className="w-full text-white bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-md font-semibold transition-colors"
+                    >
+                        Assign Delivery Agent
+                    </button>
+                ) : (
+                    renderAssignUI()
+                )
             )}
             {order.status === OrderStatus.OUT_FOR_DELIVERY && (
                 <div className="w-full flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
@@ -186,79 +200,25 @@ const MenuManager: React.FC<{ menuItems: MenuItem[]; addMenuItem: (item: Omit<Me
     );
 };
 
-const ZoneManager: React.FC<{ deliveryZones: DeliveryZone[]; addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => void; }> = ({ deliveryZones, addDeliveryZone }) => {
-    const [newZoneName, setNewZoneName] = useState('');
-    const [newZoneAreas, setNewZoneAreas] = useState('');
-
-    const handleAddZone = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (newZoneName.trim() && newZoneAreas.trim()) {
-            addDeliveryZone({ name: newZoneName, areas: newZoneAreas });
-            setNewZoneName('');
-            setNewZoneAreas('');
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Add New Delivery Zone</h3>
-                <form onSubmit={handleAddZone} className="bg-white p-4 rounded-lg shadow-md border space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="zoneName" className="block mb-2 text-sm font-medium text-gray-900">Zone Name</label>
-                            <input type="text" id="zoneName" value={newZoneName} onChange={(e) => setNewZoneName(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="e.g., Zone D" required />
-                        </div>
-                        <div>
-                            <label htmlFor="zoneAreas" className="block mb-2 text-sm font-medium text-gray-900">Areas Covered</label>
-                            <input type="text" id="zoneAreas" value={newZoneAreas} onChange={(e) => setNewZoneAreas(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="e.g., South Hills, Lakeside" required />
-                        </div>
-                    </div>
-                    <button type="submit" className="w-full bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 transition-colors flex items-center justify-center">
-                        <PlusCircleIcon className="w-5 h-5 mr-2" /> Add Zone
-                    </button>
-                </form>
-            </div>
-            <div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Current Zones</h3>
-                <div className="bg-white p-4 rounded-lg shadow-md border">
-                    <ul className="space-y-2">
-                        {deliveryZones.map(zone => (
-                            <li key={zone.id} className="p-2 rounded-md hover:bg-gray-50">
-                                <span className="font-bold text-gray-800">{zone.name}: </span>
-                                <span className="text-gray-600">{zone.areas}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Order, 'id'|'status'|'deliveryAgent'>) => void; setActiveTab: (tab: string) => void; deliveryZones: DeliveryZone[] }> = ({ menuItems, addOrder, setActiveTab, deliveryZones }) => {
+const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Order, 'id'|'status'|'deliveryAgent'>) => void; setActiveTab: (tab: string) => void; }> = ({ menuItems, addOrder, setActiveTab }) => {
     const [customerName, setCustomerName] = useState('');
     const [address, setAddress] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
-    const [selectedZone, setSelectedZone] = useState('');
     const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>(PaymentMethod.COD);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (customerName.trim() && address.trim() && selectedItem && selectedZone) {
+        if (customerName.trim() && address.trim() && selectedItem) {
             addOrder({
                 customerName,
                 address,
                 item: selectedItem,
-                deliveryZone: selectedZone,
                 paymentMethod: selectedPayment,
                 timestamp: new Date().toLocaleTimeString()
             });
             setCustomerName('');
             setAddress('');
             setSelectedItem('');
-            setSelectedZone('');
             setSelectedPayment(PaymentMethod.COD);
             alert('Order added successfully!');
             setActiveTab('dashboard');
@@ -284,14 +244,7 @@ const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Ord
                     <label htmlFor="address" className="block mb-2 text-sm font-medium text-gray-900">Delivery Address</label>
                     <textarea id="address" value={address} onChange={e => setAddress(e.target.value)} rows={2} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required></textarea>
                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="zone" className="block mb-2 text-sm font-medium text-gray-900">Delivery Zone</label>
-                        <select id="zone" value={selectedZone} onChange={e => setSelectedZone(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
-                            <option value="">Select a zone</option>
-                            {deliveryZones.map(zone => <option key={zone.id} value={zone.name}>{zone.name}</option>)}
-                        </select>
-                    </div>
+                 <div className="grid grid-cols-1">
                     <div>
                         <label htmlFor="payment" className="block mb-2 text-sm font-medium text-gray-900">Payment Method</label>
                         <select id="payment" value={selectedPayment} onChange={e => setSelectedPayment(e.target.value as PaymentMethod)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
@@ -307,7 +260,7 @@ const AddOrderForm: React.FC<{ menuItems: MenuItem[]; addOrder: (order: Omit<Ord
     );
 }
 
-const Dashboard: React.FC<{orders: Order[], onUpdate: (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => void}> = ({orders, onUpdate}) => {
+const Dashboard: React.FC<{orders: Order[], deliveryAgents: DeliveryAgent[], onUpdate: (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => void}> = ({orders, deliveryAgents, onUpdate}) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredOrders = orders.filter(order =>
@@ -357,28 +310,28 @@ const Dashboard: React.FC<{orders: Order[], onUpdate: (orderId: number, status: 
                 <section>
                     <h3 className="text-xl font-semibold text-gray-700 mb-3">Pending Orders ({pendingOrders.length})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {pendingOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {pendingOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} deliveryAgents={deliveryAgents} />)}
                         {pendingOrders.length === 0 && <p className="text-gray-500 col-span-full">No pending orders.</p>}
                     </div>
                 </section>
                 <section>
                     <h3 className="text-xl font-semibold text-gray-700 mb-3">Approved for Delivery ({approvedOrders.length})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {approvedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {approvedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} deliveryAgents={deliveryAgents} />)}
                         {approvedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are currently approved.</p>}
                     </div>
                 </section>
                 <section>
                     <h3 className="text-xl font-semibold text-gray-700 mb-3">Out for Delivery ({inDeliveryOrders.length})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {inDeliveryOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {inDeliveryOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} deliveryAgents={deliveryAgents} />)}
                         {inDeliveryOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders are out for delivery.</p>}
                     </div>
                 </section>
                 <section>
                     <h3 className="text-xl font-semibold text-gray-700 mb-3">Completed Orders ({completedOrders.length})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {completedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} />)}
+                        {completedOrders.map(order => <OrderCard key={order.id} order={order} onUpdateStatus={onUpdate} deliveryAgents={deliveryAgents} />)}
                         {completedOrders.length === 0 && <p className="text-gray-500 col-span-full">No orders have been completed or cancelled.</p>}
                     </div>
                 </section>
@@ -430,28 +383,42 @@ const AgentDetailView: React.FC<{ agent: DeliveryAgent, orders: Order[] }> = ({ 
     );
 };
 
-const DeliveryAgentsView: React.FC<{ orders: Order[] }> = ({ orders }) => {
-    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(DELIVERY_AGENTS.length > 0 ? DELIVERY_AGENTS[0].id : null);
+const DeliveryAgentsView: React.FC<{ orders: Order[], deliveryAgents: DeliveryAgent[], onToggleAvailability: (agentId: string) => void }> = ({ orders, deliveryAgents, onToggleAvailability }) => {
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(deliveryAgents.length > 0 ? deliveryAgents[0].id : null);
 
-    const selectedAgent = DELIVERY_AGENTS.find(agent => agent.id === selectedAgentId);
+    const selectedAgent = deliveryAgents.find(agent => agent.id === selectedAgentId);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 h-full">
             <div className="md:col-span-1 lg:col-span-1 bg-white p-4 rounded-lg shadow-md border">
                 <h3 className="text-xl font-semibold text-gray-700 mb-3">Delivery Agents</h3>
                 <ul className="space-y-2">
-                    {DELIVERY_AGENTS.map(agent => (
-                        <li key={agent.id}>
-                            <button
-                                onClick={() => setSelectedAgentId(agent.id)}
-                                className={`w-full text-left p-3 rounded-md transition-colors text-sm font-medium ${
-                                    selectedAgentId === agent.id
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                            >
-                                {agent.name}
-                            </button>
+                    {deliveryAgents.map(agent => (
+                        <li key={agent.id} 
+                            onClick={() => setSelectedAgentId(agent.id)}
+                            className={`p-3 rounded-md transition-all cursor-pointer ${
+                                selectedAgentId === agent.id ? 'bg-blue-100 ring-2 ring-blue-500' : 'bg-gray-50 hover:bg-gray-100'
+                            } ${!agent.isAvailable ? 'opacity-60' : ''}`}
+                        >
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center">
+                                    <div className={`w-3 h-3 rounded-full mr-3 ${agent.isAvailable ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                                    <span className={`font-medium ${selectedAgentId === agent.id ? 'text-blue-800' : 'text-gray-800'}`}>{agent.name}</span>
+                                </div>
+                                <label htmlFor={`toggle-${agent.id}`} className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        id={`toggle-${agent.id}`}
+                                        className="sr-only peer"
+                                        checked={agent.isAvailable}
+                                        onChange={(e) => {
+                                            e.stopPropagation();
+                                            onToggleAvailability(agent.id);
+                                        }}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                 </label>
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -473,12 +440,39 @@ const DeliveryAgentsView: React.FC<{ orders: Order[] }> = ({ orders }) => {
 };
 
 
-const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder, deliveryZones, addDeliveryZone }) => {
+const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder, deliveryAgents, toggleAgentAvailability }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [notifications, setNotifications] = useState<{ id: number; message: string }[]>([]);
+  const prevOrderCountRef = useRef(orders.length);
 
   const onUpdate = (orderId: number, status: OrderStatus, agent?: DeliveryAgent) => {
     updateOrderStatus(orderId, status, agent?.id);
-  }
+  };
+
+  const removeNotification = useCallback((id: number) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (orders.length > prevOrderCountRef.current) {
+        const newOrdersCount = orders.length - prevOrderCountRef.current;
+        const newOrders = orders.slice(-newOrdersCount);
+
+        newOrders.forEach(newOrder => {
+            const newNotification = {
+                id: newOrder.id,
+                message: `New order #${newOrder.id} from ${newOrder.customerName}.`
+            };
+            setNotifications(prev => [newNotification, ...prev]);
+
+            setTimeout(() => {
+                removeNotification(newOrder.id);
+            }, 6000);
+        });
+    }
+    prevOrderCountRef.current = orders.length;
+  }, [orders, removeNotification]);
+
 
   const pendingOrderCount = orders.filter(o => o.status === OrderStatus.PENDING).length;
 
@@ -503,6 +497,33 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
   
   return (
     <div className="p-4 bg-gray-50 h-full flex flex-col">
+       {/* Notification Toast Container */}
+      <div aria-live="assertive" className="fixed inset-0 flex items-end px-4 py-6 pointer-events-none sm:p-6 sm:items-start z-50">
+        <div className="w-full flex flex-col items-center space-y-4 sm:items-end">
+          {notifications.map((notification) => (
+            <div key={notification.id} className="max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
+              <div className="p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <BellIcon className="h-6 w-6 text-green-500" aria-hidden="true" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1 pt-0.5">
+                    <p className="text-sm font-medium text-gray-900">New Order Received</p>
+                    <p className="mt-1 text-sm text-gray-500">{notification.message}</p>
+                  </div>
+                  <div className="ml-4 flex-shrink-0 flex">
+                    <button onClick={() => removeNotification(notification.id)} className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                      <span className="sr-only">Close</span>
+                      <XIcon className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="flex-shrink-0">
         <h2 className="text-2xl font-bold mb-4 text-gray-800">Admin Panel</h2>
         <div className="border-b border-gray-200">
@@ -510,18 +531,16 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
                 <TabButton label="Dashboard" tabName="dashboard" icon={<ClipboardListIcon className="w-5 h-5"/>} notificationCount={pendingOrderCount} />
                 <TabButton label="Menu" tabName="menu" icon={<MenuIcon className="w-5 h-5"/>} />
                 <TabButton label="Add Order" tabName="addOrder" icon={<PlusCircleIcon className="w-5 h-5"/>} />
-                <TabButton label="Delivery Zones" tabName="zones" icon={<MapPinIcon className="w-5 h-5" />} />
                 <TabButton label="Delivery Agents" tabName="deliveryAgents" icon={<UsersIcon className="w-5 h-5" />} />
             </nav>
         </div>
       </div>
       
       <div className="flex-grow overflow-y-auto pt-4">
-        {activeTab === 'dashboard' && <Dashboard orders={orders} onUpdate={onUpdate} />}
+        {activeTab === 'dashboard' && <Dashboard orders={orders} deliveryAgents={deliveryAgents} onUpdate={onUpdate} />}
         {activeTab === 'menu' && <MenuManager menuItems={menuItems} addMenuItem={addMenuItem} />}
-        {activeTab === 'addOrder' && <AddOrderForm menuItems={menuItems} addOrder={addOrder} setActiveTab={setActiveTab} deliveryZones={deliveryZones} />}
-        {activeTab === 'zones' && <ZoneManager deliveryZones={deliveryZones} addDeliveryZone={addDeliveryZone} />}
-        {activeTab === 'deliveryAgents' && <DeliveryAgentsView orders={orders} />}
+        {activeTab === 'addOrder' && <AddOrderForm menuItems={menuItems} addOrder={addOrder} setActiveTab={setActiveTab} />}
+        {activeTab === 'deliveryAgents' && <DeliveryAgentsView orders={orders} deliveryAgents={deliveryAgents} onToggleAvailability={toggleAgentAvailability} />}
       </div>
     </div>
   );

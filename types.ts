@@ -19,18 +19,13 @@ export enum PaymentMethod {
 export interface DeliveryAgent {
   id: string;
   name: string;
+  isAvailable: boolean;
 }
 
 export interface MenuItem {
   id: number;
   name: string;
   price: number;
-}
-
-export interface DeliveryZone {
-  id: number;
-  name: string;
-  areas: string; // A simple description of areas covered
 }
 
 export interface Order {
@@ -42,7 +37,6 @@ export interface Order {
   status: OrderStatus;
   deliveryAgent: DeliveryAgent | null;
   paymentMethod: PaymentMethod;
-  deliveryZone: string;
 }
 
 export interface Message {
@@ -58,7 +52,6 @@ export enum ChatStep {
   ASK_NAME,
   ASK_ITEM,
   ASK_ADDRESS,
-  ASK_ZONE,
   ASK_PAYMENT,
   CONFIRMATION,
   ORDER_PLACED,

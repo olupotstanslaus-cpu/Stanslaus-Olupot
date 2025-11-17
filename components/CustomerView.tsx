@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, Order, ChatStep, MenuItem, DeliveryZone, PaymentMethod } from '../types';
+import { Message, Order, ChatStep, MenuItem, PaymentMethod } from '../types';
 import { BOT_NAME, PAYMENT_METHODS } from '../constants';
 import { generateBotResponse } from '../services/geminiService';
 import { SendIcon, BotIcon, UserIcon, CheckCircleIcon, DotIcon, XCircleIcon, ClipboardListIcon } from './Icons';
@@ -9,14 +9,14 @@ interface CustomerViewProps {
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   menuItems: MenuItem[];
-  deliveryZones: DeliveryZone[];
 }
 
-const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages, menuItems, deliveryZones }) => {
+const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMessages, menuItems }) => {
   const [input, setInput] = useState('');
   const [chatStep, setChatStep] = useState<ChatStep>(ChatStep.GREETING);
-  const [orderDetails, setOrderDetails] = useState({ name: '', item: '', address: '', zone: '', payment: '' as PaymentMethod });
+  const [orderDetails, setOrderDetails] = useState({ name: '', item: '', address: '', payment: '' as PaymentMethod });
   const [isBotTyping, setIsBotTyping] = useState(false);
+  const [isConfirmationModalVisible, setIsConfirmationModalVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -54,6 +54,28 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  
+  const handleFinalConfirm = () => {
+    const finalOrder = {
+       customerName: orderDetails.name,
+       item: orderDetails.item,
+       address: orderDetails.address,
+       paymentMethod: orderDetails.payment,
+       timestamp: new Date().toLocaleTimeString(),
+    };
+    addOrder(finalOrder);
+    handleBotResponse(`The user confirmed the order. Thank them and let them know their order has been placed successfully. Tell them they will be notified here once an admin approves it.`);
+    setChatStep(ChatStep.ORDER_PLACED);
+    setIsConfirmationModalVisible(false);
+  };
+
+  const handleModalCancel = () => {
+    handleBotResponse(`The user cancelled the order from the final confirmation. Apologize and ask if they would like to start over.`);
+    setChatStep(ChatStep.GREETING);
+    setOrderDetails({ name: '', item: '', address: '', payment: '' as PaymentMethod });
+    setIsConfirmationModalVisible(false);
+  };
+
 
   const handleUserAction = (userInput: string, isAutomated: boolean = false) => {
     if (!isAutomated) {
@@ -74,20 +96,9 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
         break;
       case ChatStep.ASK_ADDRESS:
         setOrderDetails(prev => ({ ...prev, address: userInput }));
-        const zonesString = deliveryZones.map(zone => `- ${zone.name} (${zone.areas})`).join('\n');
-        handleBotResponse(`Got it. Your address is "${userInput}". Please select your delivery zone from the list below by typing its name (e.g., Zone A):\n${zonesString}`);
-        setChatStep(ChatStep.ASK_ZONE);
-        break;
-      case ChatStep.ASK_ZONE:
-        const selectedZone = deliveryZones.find(z => z.name.toLowerCase() === userInput.trim().toLowerCase());
-        if (selectedZone) {
-            setOrderDetails(prev => ({ ...prev, zone: selectedZone.name }));
-            const paymentOptions = PAYMENT_METHODS.join(' or ');
-            handleBotResponse(`Great, you're in ${selectedZone.name}. How would you like to pay? (${paymentOptions})`);
-            setChatStep(ChatStep.ASK_PAYMENT);
-        } else {
-            handleBotResponse(`Sorry, that's not a valid delivery zone. Please choose from the list I provided by typing the zone name exactly.`);
-        }
+        const paymentOptions = PAYMENT_METHODS.join(' or ');
+        handleBotResponse(`Got it. Your address is "${userInput}". How would you like to pay? (${paymentOptions})`);
+        setChatStep(ChatStep.ASK_PAYMENT);
         break;
       case ChatStep.ASK_PAYMENT:
         const selectedPayment = PAYMENT_METHODS.find(p => p.toLowerCase().includes(userInput.trim().toLowerCase()));
@@ -99,10 +110,8 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
                - Name: ${currentOrder.name}
                - Item: ${currentOrder.item}
                - Address: ${currentOrder.address}
-               - Zone: ${currentOrder.zone}
                - Payment: ${currentOrder.payment}
-               Please type 'yes' to confirm or 'no' to cancel.`,
-               'yes'
+               Please type 'yes' to confirm or 'no' to cancel.`
             );
             setChatStep(ChatStep.CONFIRMATION);
         } else {
@@ -111,21 +120,11 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
         break;
       case ChatStep.CONFIRMATION:
         if (userInput.toLowerCase() === 'yes') {
-          const finalOrder = {
-             customerName: orderDetails.name,
-             item: orderDetails.item,
-             address: orderDetails.address,
-             deliveryZone: orderDetails.zone,
-             paymentMethod: orderDetails.payment,
-             timestamp: new Date().toLocaleTimeString(),
-          };
-          addOrder(finalOrder);
-          handleBotResponse(`The user confirmed the order. Thank them and let them know their order has been placed successfully. Tell them they will be notified here once an admin approves it.`);
-          setChatStep(ChatStep.ORDER_PLACED);
+          setIsConfirmationModalVisible(true);
         } else {
           handleBotResponse(`The user cancelled the order. Apologize and ask if they would like to start over.`);
           setChatStep(ChatStep.GREETING); // Reset
-          setOrderDetails({ name: '', item: '', address: '', zone: '', payment: '' as PaymentMethod });
+          setOrderDetails({ name: '', item: '', address: '', payment: '' as PaymentMethod });
         }
         break;
       case ChatStep.ORDER_PLACED:
@@ -142,7 +141,34 @@ const CustomerView: React.FC<CustomerViewProps> = ({ addOrder, messages, setMess
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#ECE5DD]">
+    <div className="relative flex flex-col h-full bg-[#ECE5DD]">
+      {isConfirmationModalVisible && (
+        <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-auto animate-fade-in-up">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Confirm Your Order</h2>
+                <div className="space-y-3 text-gray-700 my-4">
+                    <p><strong>Name:</strong> {orderDetails.name}</p>
+                    <p><strong>Item:</strong> {orderDetails.item}</p>
+                    <p><strong>Address:</strong> {orderDetails.address}</p>
+                    <p><strong>Payment:</strong> {orderDetails.payment}</p>
+                </div>
+                <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                        onClick={handleModalCancel}
+                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-semibold hover:bg-gray-300 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleFinalConfirm}
+                        className="px-4 py-2 bg-green-500 text-white rounded-md font-semibold hover:bg-green-600 transition-colors"
+                    >
+                        Confirm Order
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
       <div className="bg-[#075E54] text-white p-3 flex items-center shadow-md">
         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center mr-3">
             <BotIcon className="w-8 h-8 text-green-600" />

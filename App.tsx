@@ -1,16 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { UserRole, Order, OrderStatus, MenuItem, DeliveryZone } from './types';
+import { UserRole, Order, OrderStatus, MenuItem, DeliveryAgent } from './types';
 import CustomerView from './components/CustomerView';
 import AdminView from './components/AdminView';
 import { BotIcon, UserShieldIcon } from './components/Icons';
-import { DELIVERY_AGENTS, INITIAL_MENU_ITEMS, INITIAL_DELIVERY_ZONES } from './constants';
+import { DELIVERY_AGENTS, INITIAL_MENU_ITEMS } from './constants';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.CUSTOMER);
   const [orders, setOrders] = useState<Order[]>([]);
   const [customerMessages, setCustomerMessages] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
-  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(INITIAL_DELIVERY_ZONES);
+  const [deliveryAgents, setDeliveryAgents] = useState<DeliveryAgent[]>(DELIVERY_AGENTS);
 
   const addOrder = (newOrder: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => {
     setOrders(prevOrders => [
@@ -28,10 +28,14 @@ const App: React.FC = () => {
     setMenuItems(prev => [...prev, { ...newItem, id: Date.now() }]);
   };
 
-  const addDeliveryZone = (newZone: Omit<DeliveryZone, 'id'>) => {
-    setDeliveryZones(prev => [...prev, { ...newZone, id: Date.now() }]);
-  };
-  
+  const toggleAgentAvailability = useCallback((agentId: string) => {
+    setDeliveryAgents(prevAgents =>
+      prevAgents.map(agent =>
+        agent.id === agentId ? { ...agent, isAvailable: !agent.isAvailable } : agent
+      )
+    );
+  }, []);
+
   const updateOrderStatus = useCallback((orderId: number, status: OrderStatus, deliveryAgentId?: string) => {
     let updatedOrder: Order | undefined;
     setOrders(prevOrders =>
@@ -41,7 +45,7 @@ const App: React.FC = () => {
               ...order,
               status,
               deliveryAgent: deliveryAgentId
-                ? DELIVERY_AGENTS.find(agent => agent.id === deliveryAgentId) || order.deliveryAgent
+                ? deliveryAgents.find(agent => agent.id === deliveryAgentId) || order.deliveryAgent
                 : order.deliveryAgent,
             };
             return updatedOrder;
@@ -86,7 +90,7 @@ const App: React.FC = () => {
             notificationType,
         }]);
     }
-  }, []);
+  }, [deliveryAgents]);
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col items-center justify-center font-sans">
@@ -121,7 +125,6 @@ const App: React.FC = () => {
               messages={customerMessages} 
               setMessages={setCustomerMessages} 
               menuItems={menuItems} 
-              deliveryZones={deliveryZones}
             />
           ) : (
             <AdminView 
@@ -130,8 +133,8 @@ const App: React.FC = () => {
               menuItems={menuItems}
               addMenuItem={addMenuItem}
               addOrder={addOrder}
-              deliveryZones={deliveryZones}
-              addDeliveryZone={addDeliveryZone}
+              deliveryAgents={deliveryAgents}
+              toggleAgentAvailability={toggleAgentAvailability}
             />
           )}
         </main>
