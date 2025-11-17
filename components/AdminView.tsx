@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Order, OrderStatus, DeliveryAgent, MenuItem, PaymentMethod } from '../types';
+import { Order, OrderStatus, DeliveryAgent, MenuItem, PaymentMethod, GalleryItem } from '../types';
 import { PAYMENT_METHODS } from '../constants';
-import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon, UsersIcon, BellIcon, XIcon } from './Icons';
+import { CheckCircleIcon, ClockIcon, TruckIcon, ClipboardListIcon, ChevronDownIcon, XCircleIcon, PlusCircleIcon, MenuIcon, SearchIcon, UsersIcon, BellIcon, XIcon, SparklesIcon } from './Icons';
+import MediaGenerator from './MediaGenerator';
 
 interface AdminViewProps {
   orders: Order[];
@@ -11,6 +12,10 @@ interface AdminViewProps {
   addOrder: (order: Omit<Order, 'id' | 'status' | 'deliveryAgent'>) => void;
   deliveryAgents: DeliveryAgent[];
   toggleAgentAvailability: (agentId: string) => void;
+  galleryItems: GalleryItem[];
+  addGalleryItem: (item: Omit<GalleryItem, 'id'>) => void;
+  toggleHomePageAsset: (itemId: string) => void;
+  deleteGalleryItem: (itemId: string) => void;
 }
 
 const getStatusIcon = (status: OrderStatus) => {
@@ -59,6 +64,18 @@ const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, stat
             setIsAssigning(false);
         }
     }
+
+    const handleApproveAndAutoAssign = () => {
+        const availableAgents = deliveryAgents.filter(agent => agent.isAvailable);
+        
+        if (availableAgents.length > 0) {
+            const randomIndex = Math.floor(Math.random() * availableAgents.length);
+            const randomAgent = availableAgents[randomIndex];
+            onUpdateStatus(order.id, OrderStatus.OUT_FOR_DELIVERY, randomAgent);
+        } else {
+            onUpdateStatus(order.id, OrderStatus.APPROVED);
+        }
+    };
     
     const renderAssignUI = () => (
         <div className="w-full space-y-2">
@@ -104,7 +121,7 @@ const OrderCard: React.FC<{ order: Order, onUpdateStatus: (orderId: number, stat
         <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
             {order.status === OrderStatus.PENDING && (
                 <div className="w-full flex space-x-2">
-                    <button onClick={() => onUpdateStatus(order.id, OrderStatus.APPROVED)} className="flex-grow bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 transition-colors">Approve Order</button>
+                    <button onClick={handleApproveAndAutoAssign} className="flex-grow bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 transition-colors">Approve & Assign</button>
                     <button onClick={() => onUpdateStatus(order.id, OrderStatus.CANCELLED)} className="flex-grow bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors">Cancel</button>
                 </div>
             )}
@@ -440,7 +457,7 @@ const DeliveryAgentsView: React.FC<{ orders: Order[], deliveryAgents: DeliveryAg
 };
 
 
-const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder, deliveryAgents, toggleAgentAvailability }) => {
+const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuItems, addMenuItem, addOrder, deliveryAgents, toggleAgentAvailability, galleryItems, addGalleryItem, toggleHomePageAsset, deleteGalleryItem }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState<{ id: number; message: string }[]>([]);
   const prevOrderCountRef = useRef(orders.length);
@@ -529,6 +546,7 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
         <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-6" aria-label="Tabs">
                 <TabButton label="Dashboard" tabName="dashboard" icon={<ClipboardListIcon className="w-5 h-5"/>} notificationCount={pendingOrderCount} />
+                <TabButton label="Media" tabName="media" icon={<SparklesIcon className="w-5 h-5"/>} />
                 <TabButton label="Menu" tabName="menu" icon={<MenuIcon className="w-5 h-5"/>} />
                 <TabButton label="Add Order" tabName="addOrder" icon={<PlusCircleIcon className="w-5 h-5"/>} />
                 <TabButton label="Delivery Agents" tabName="deliveryAgents" icon={<UsersIcon className="w-5 h-5" />} />
@@ -538,6 +556,7 @@ const AdminView: React.FC<AdminViewProps> = ({ orders, updateOrderStatus, menuIt
       
       <div className="flex-grow overflow-y-auto pt-4">
         {activeTab === 'dashboard' && <Dashboard orders={orders} deliveryAgents={deliveryAgents} onUpdate={onUpdate} />}
+        {activeTab === 'media' && <MediaGenerator galleryItems={galleryItems} addGalleryItem={addGalleryItem} toggleHomePageAsset={toggleHomePageAsset} deleteGalleryItem={deleteGalleryItem} />}
         {activeTab === 'menu' && <MenuManager menuItems={menuItems} addMenuItem={addMenuItem} />}
         {activeTab === 'addOrder' && <AddOrderForm menuItems={menuItems} addOrder={addOrder} setActiveTab={setActiveTab} />}
         {activeTab === 'deliveryAgents' && <DeliveryAgentsView orders={orders} deliveryAgents={deliveryAgents} onToggleAvailability={toggleAgentAvailability} />}

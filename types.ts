@@ -57,3 +57,11 @@ export enum ChatStep {
   ORDER_PLACED,
   DONE
 }
+
+export interface GalleryItem {
+  id: string;
+  type: 'image' | 'video';
+  url: string; // base64 or object URL
+  prompt: string;
+  isHomePageAsset: boolean;
+}
